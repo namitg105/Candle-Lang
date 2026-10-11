@@ -1,0 +1,91 @@
+======================================================================
+CANDLELANG — Week 1 pipeline demo (synthetic data)
+======================================================================
+
+Generated 250 synthetic daily candles.
+Encoded candle string (alphabet U/D/F/G), length 250:
+
+  UDGGFUDDFUDDFFDFUFDGUUDDGUFUUFFUFDDDUUGDUDDDUDDDDUUUGFUUGGDU
+  UDUDUDGFUFDUUUDUGDUDGUUDUDDDDUDUDDDGUGUDDDDUUUDDDUDDUUUUDDDD
+  UDFUUUDGUDDDUDUDUDDUUDDFDDUDDUDFDFDUDDDDUUDDUUUDUUUUDUDUDDDD
+  DDUDUUFDFDDDFUUUDUUUUUDUDUDUDFUUDUDDUUUDFGUUUDUUGUUDUUDUUDDD
+  DDDUDDUUUU
+
+----------------------------------------------------------------------
+Symbol frequency:
+  U:  104  (41.6%)
+  D:  108  (43.2%)
+  F:   22  (8.8%)
+  G:   16  (6.4%)
+
+======================================================================
+PATTERN MATCHING (regex -> Thompson NFA -> substring search)
+======================================================================
+
+[three_white_soldiers]  /U{3,}/   — Three or more consecutive up-candles: strong bullish continuation.
+    NFA states: 10   DFA states: 5   Minimized DFA states: 4
+    Occurrences found: 12   DFA cross-check: PASS
+      -> position  49- 52: UUU
+      -> position  71- 74: UUU
+      -> position 103-106: UUU
+      -> position 112-116: UUUU
+      -> position 123-126: UUU
+      ... and 7 more
+    Saved diagrams: nfa_three_white_soldiers.png, dfa_min_three_white_soldiers.png
+    Saved transition table: dfa_table_three_white_soldiers.txt
+
+[three_black_crows]  /D{3,}/   — Three or more consecutive down-candles: strong bearish continuation.
+    NFA states: 10   DFA states: 5   Minimized DFA states: 4
+    Occurrences found: 13   DFA cross-check: PASS
+      -> position  33- 36: DDD
+      -> position  41- 44: DDD
+      -> position  45- 49: DDDD
+      -> position  85- 89: DDDD
+      -> position  92- 95: DDD
+      ... and 8 more
+
+[bullish_reversal]  /D+FU+/   — A downtrend, a pause/indecision candle, then upside resumes: classic reversal shape.
+    NFA states: 14   DFA states: 6   Minimized DFA states: 4
+    Occurrences found: 5   DFA cross-check: PASS
+      -> position   6- 10: DDFU
+      -> position  14- 17: DFU
+      -> position 121-126: DFUUU
+      -> position 189-196: DDDFUUU
+      -> position 208-212: DFUU
+    Saved diagrams: nfa_bullish_reversal.png, dfa_min_bullish_reversal.png
+    Saved transition table: dfa_table_bullish_reversal.txt
+
+[bearish_reversal]  /U+FD+/   — An uptrend, a pause/indecision candle, then downside resumes.
+    NFA states: 14   DFA states: 6   Minimized DFA states: 4
+    Occurrences found: 4   DFA cross-check: PASS
+      -> position  16- 19: UFD
+      -> position  31- 36: UFDDD
+      -> position  68- 71: UFD
+      -> position 184-188: UUFD
+
+[gap_and_go]  /GU+/   — A gap open immediately followed by sustained upside: momentum breakout.
+    NFA states: 8   DFA states: 4   Minimized DFA states: 3
+    Occurrences found: 8   DFA cross-check: PASS
+      -> position  19- 22: GUU
+      -> position  24- 26: GU
+      -> position  80- 83: GUU
+      -> position  95- 97: GU
+      -> position  97- 99: GU
+      ... and 3 more
+
+[exhaustion_gap]  /U{2,}GD/   — A run-up, a gap (often up), then an immediate reversal down: classic exhaustion signal.
+    NFA states: 12   DFA states: 6   Minimized DFA states: 5
+    Occurrences found: 1   DFA cross-check: PASS
+      -> position  36- 40: UUGD
+
+[indecision_cluster]  /F{2,}/   — Two or more flat/doji-like candles in a row: the market is undecided, often precedes a breakout.
+    NFA states: 8   DFA states: 4   Minimized DFA states: 3
+    Occurrences found: 2   DFA cross-check: PASS
+      -> position  12- 14: FF
+      -> position  29- 31: FF
+
+[double_top] SKIPPED for automaton matching — Two peaks of *similar height* separated by a trough: the up/down *shape* (U+DU+D roughly) is regular, but 'similar height' compares actual price magnitudes across candles, which needs a numeric check outside the finite automaton. Handled as: FA flags the U+DU+D shape as a *candidate*, then a small numeric post-filter checks the two peak highs are within ~1% of each other.
+
+======================================================================
+Diagrams and summary written to: /tmp/candlelang/output
+======================================================================

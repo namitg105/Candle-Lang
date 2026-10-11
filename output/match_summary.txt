@@ -1,0 +1,26 @@
+CandleLang — pattern match summary (synthetic 250-day series)
+============================================================
+
+three_white_soldiers  /U{3,}/  -> 12 occurrence(s)
+    Three or more consecutive up-candles: strong bullish continuation.
+
+three_black_crows  /D{3,}/  -> 13 occurrence(s)
+    Three or more consecutive down-candles: strong bearish continuation.
+
+bullish_reversal  /D+FU+/  -> 5 occurrence(s)
+    A downtrend, a pause/indecision candle, then upside resumes: classic reversal shape.
+
+bearish_reversal  /U+FD+/  -> 4 occurrence(s)
+    An uptrend, a pause/indecision candle, then downside resumes.
+
+gap_and_go  /GU+/  -> 8 occurrence(s)
+    A gap open immediately followed by sustained upside: momentum breakout.
+
+exhaustion_gap  /U{2,}GD/  -> 1 occurrence(s)
+    A run-up, a gap (often up), then an immediate reversal down: classic exhaustion signal.
+
+indecision_cluster  /F{2,}/  -> 2 occurrence(s)
+    Two or more flat/doji-like candles in a row: the market is undecided, often precedes a breakout.
+
+double_top: NOT run through FA (needs numeric check) — Two peaks of *similar height* separated by a trough: the up/down *shape* (U+DU+D roughly) is regular, but 'similar height' compares actual price magnitudes across candles, which needs a numeric check outside the finite automaton. Handled as: FA flags the U+DU+D shape as a *candidate*, then a small numeric post-filter checks the two peak highs are within ~1% of each other.
+
