@@ -1,17 +1,14 @@
-# candlelang_app
+# CandleLang (Flutter app)
 
-A new Flutter project.
+Pure-Dart Clean Architecture implementation of the CandleLang pipeline — see the
+[project README](../README.md) at the repository root for the full write-up
+(architecture, patterns implemented, and how the regex → NFA → DFA →
+minimized-DFA engine works).
 
-## Getting Started
+## Quick start
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter pub get
+flutter test
+flutter run -d chrome   # or: flutter run -d windows
+```

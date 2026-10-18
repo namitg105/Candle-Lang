@@ -17,6 +17,12 @@ class AutomatonLoading extends AutomatonState {
   const AutomatonLoading();
 }
 
+/// Sentinel used by [AutomatonLoaded.copyWith] to distinguish "field not
+/// passed" from "field explicitly passed as null" — a plain `value ?? old`
+/// copyWith can never null out [AutomatonLoaded.traceResult], which is
+/// exactly what clearing the simulator input needs to do.
+const Object _unset = Object();
+
 class AutomatonLoaded extends AutomatonState {
   final String patternName;
   final String patternRegex;
@@ -40,7 +46,7 @@ class AutomatonLoaded extends AutomatonState {
     String? meaning,
     AutomatonInspection? inspection,
     String? candidateString,
-    DfaTraceResult? traceResult,
+    Object? traceResult = _unset,
   }) {
     return AutomatonLoaded(
       patternName: patternName ?? this.patternName,
@@ -48,7 +54,9 @@ class AutomatonLoaded extends AutomatonState {
       meaning: meaning ?? this.meaning,
       inspection: inspection ?? this.inspection,
       candidateString: candidateString ?? this.candidateString,
-      traceResult: traceResult ?? this.traceResult,
+      traceResult: identical(traceResult, _unset)
+          ? this.traceResult
+          : traceResult as DfaTraceResult?,
     );
   }
 

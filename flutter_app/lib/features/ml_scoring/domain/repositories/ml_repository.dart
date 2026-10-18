@@ -1,20 +1,22 @@
-import '../../../automaton/domain/entities/match_span.dart';
 import '../../../encoding/domain/entities/candle.dart';
+import '../../../pattern_detection/domain/entities/pattern_result.dart';
 import '../entities/scored_match.dart';
 
 /// Contract for ML scoring operations.
 ///
-/// Scores raw pattern matches using a pure-Dart logistic regression
-/// model with 11 hand-crafted features.
+/// Trains a logistic regression model from scratch — at analysis time,
+/// via gradient descent — over every match the automaton pipeline found
+/// across all patterns, then scores each match with the trained model.
 abstract class MlRepository {
-  /// Scores a list of raw [MatchSpan]s using logistic regression.
+  /// Builds the training set from [patternResults] (features per match,
+  /// labels from each match's 5-day forward return aligned with its
+  /// pattern's expected direction), fits a logistic regression via
+  /// gradient descent, and scores every match with the fitted model.
   ///
-  /// Each match is enriched with features computed from the surrounding
-  /// candle data and assigned a confidence score ∈ [0, 1].
-  List<ScoredMatch> scoreMatches({
-    required List<MatchSpan> matches,
+  /// Returns a map from pattern name to that pattern's scored matches.
+  Map<String, List<ScoredMatch>> trainAndScore({
+    required List<PatternResult> patternResults,
     required String encodedString,
     required List<Candle> candles,
-    required String patternName,
   });
 }

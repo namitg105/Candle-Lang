@@ -79,10 +79,12 @@ class PatternRepositoryImpl implements PatternRepository {
         (dfa) => dfa,
       );
 
-      // Step 6: Cross-check — verify NFA and DFA accept the same strings
+      // Step 6: Cross-check — every match the NFA found must also be
+      // accepted by the *minimized* DFA. This is the actual equivalence
+      // claim the project makes (NFA ≡ DFA ≡ minimized DFA), so it has
+      // to run against minDfa, not the intermediate, unminimized dfa.
       final crossCheckPassed = _crossCheckAcceptance(
-        nfa: nfa,
-        dfa: dfa,
+        minDfa: minDfa,
         matches: matches,
         encodedString: encodedString,
       );
@@ -219,19 +221,17 @@ class PatternRepositoryImpl implements PatternRepository {
     return filtered;
   }
 
-  /// Cross-checks that NFA-found matches are also accepted by the DFA.
-  ///
-  /// This verifies language equivalence: every string matched by the NFA
-  /// must also be accepted by the DFA built from it.
+  /// Cross-checks that every NFA-found match is also accepted by the
+  /// minimized DFA — concrete evidence that minimization preserved the
+  /// language the NFA recognises.
   bool _crossCheckAcceptance({
-    required dynamic nfa,
-    required Dfa dfa,
+    required Dfa minDfa,
     required List<MatchSpan> matches,
     required String encodedString,
   }) {
     for (final span in matches) {
       final substr = encodedString.substring(span.start, span.end);
-      final accepted = automatonRepository.dfaAccepts(dfa, substr);
+      final accepted = automatonRepository.dfaAccepts(minDfa, substr);
       if (!accepted) return false;
     }
     return true;

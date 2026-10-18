@@ -1,34 +1,32 @@
-import '../../../automaton/domain/entities/match_span.dart';
 import '../../../encoding/domain/entities/candle.dart';
+import '../../../pattern_detection/domain/entities/pattern_result.dart';
 import '../entities/scored_match.dart';
 import '../repositories/ml_repository.dart';
 
-/// Use case: score a list of pattern matches using the ML pipeline.
+/// Use case: train the confidence model on every match found this run,
+/// then score each one.
 class ScoreMatches {
   final MlRepository repository;
 
   ScoreMatches(this.repository);
 
-  List<ScoredMatch> call(ScoreMatchesParams params) {
-    return repository.scoreMatches(
-      matches: params.matches,
+  Map<String, List<ScoredMatch>> call(ScoreMatchesParams params) {
+    return repository.trainAndScore(
+      patternResults: params.patternResults,
       encodedString: params.encodedString,
       candles: params.candles,
-      patternName: params.patternName,
     );
   }
 }
 
 class ScoreMatchesParams {
-  final List<MatchSpan> matches;
+  final List<PatternResult> patternResults;
   final String encodedString;
   final List<Candle> candles;
-  final String patternName;
 
   const ScoreMatchesParams({
-    required this.matches,
+    required this.patternResults,
     required this.encodedString,
     required this.candles,
-    required this.patternName,
   });
 }

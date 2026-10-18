@@ -53,16 +53,16 @@ class AnalysisRepositoryImpl implements AnalysisRepository {
       return Left(ComputationFailure('Pattern detection failed: $e'));
     }
 
-    // Step 4: Score each match with ML model (batch per pattern).
-    final scoredPatterns = <PatternResultWithScores>[];
-    for (final pr in patternResults) {
-      final scored = mlRepository.scoreMatches(
-        matches: pr.matches,
-        encodedString: encodedResult.encoded,
-        candles: candles,
-        patternName: pr.definition.name,
-      );
+    // Step 4: Train the confidence model once on every match found across
+    // every pattern, then score each match with the fitted model.
+    final scoredByPattern = mlRepository.trainAndScore(
+      patternResults: patternResults,
+      encodedString: encodedResult.encoded,
+      candles: candles,
+    );
 
+    final scoredPatterns = patternResults.map((pr) {
+      final scored = scoredByPattern[pr.definition.name] ?? const [];
       final scoredMatches = scored
           .map((sm) => ScoredMatchResult(
                 start: sm.start,
@@ -72,15 +72,15 @@ class AnalysisRepositoryImpl implements AnalysisRepository {
               ))
           .toList();
 
-      scoredPatterns.add(PatternResultWithScores(
+      return PatternResultWithScores(
         definition: pr.definition,
         matches: scoredMatches,
         nfaStates: pr.nfaStates,
         dfaStates: pr.dfaStates,
         minDfaStates: pr.minDfaStates,
         crossCheckPassed: pr.crossCheckPassed,
-      ));
-    }
+      );
+    }).toList();
 
     // Step 5: Build the aggregated result.
     final firstDate = candles.first.date;
