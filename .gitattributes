@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.apk binary
+*.sha1 binary
+*.jar binary
+*.keystore binary

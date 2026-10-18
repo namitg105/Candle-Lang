@@ -46,7 +46,7 @@ flutter_app/lib/
     │   └── domain/                 # PatternDefinition, PatternResult, DetectAllPatterns, DetectDoubleTop
     ├── ml_scoring/                 # Machine learning confidence inference
     │   ├── data/                   # MlRepositoryImpl (11-feature extraction, z-score, sigmoid)
-    │   └── domain/                 # MlScore, ScoredMatch, ScoreMatches use case
+    │   └── domain/                 # ScoredMatch, ScoreMatches use case
     └── visualization/              # UI visualization shell
         ├── data/                   # AnalysisRepositoryImpl
         ├── domain/                 # AnalysisResult, RunFullAnalysis
