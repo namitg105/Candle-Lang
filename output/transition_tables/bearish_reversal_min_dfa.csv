@@ -1,0 +1,9 @@
+state,symbol,next_state
+q0,D,q0
+q1,U,q2
+q2,U,q2
+q2,F,q3
+q3,D,q0
+
+start_state,q1
+accepting_states,q0

@@ -1,0 +1,8 @@
+Minimized DFA transition table for /GU+/  (gap_and_go)
+Start state: q1   Accepting state(s): {q0}
+(Missing entries go to an implicit dead/trap state)
+
+state   U     D     F     G     accepting?
+q0      q0    -     -     -     yes
+q1      -     -     -     q2    no
+q2      q0    -     -     -     no

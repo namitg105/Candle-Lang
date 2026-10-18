@@ -1,6 +1,6 @@
 Minimized DFA transition table for /U{3,}/  (three_white_soldiers)
 Start state: q1   Accepting state(s): {q0}
-(Missing entries go to an implicit dead/trap state -- omitted for clarity)
+(Missing entries go to an implicit dead/trap state)
 
 state   U     D     F     G     accepting?
 q0      q0    -     -     -     yes

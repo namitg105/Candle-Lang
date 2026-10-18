@@ -1,26 +1,38 @@
-CandleLang — pattern match summary (synthetic 250-day series)
+CandleLang — pattern match summary (real AAPL data)
 ============================================================
 
-three_white_soldiers  /U{3,}/  -> 12 occurrence(s)
+Data source: https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv
+Range: 2015-02-17 to 2017-02-16
+Candles: 506, Encoded symbols: 506
+
+three_white_soldiers  /U{3,}/  -> 5 occurrence(s)  DFA cross-check: PASS
+    NFA: 10 states, Min DFA: 4 states
     Three or more consecutive up-candles: strong bullish continuation.
 
-three_black_crows  /D{3,}/  -> 13 occurrence(s)
+three_black_crows  /D{3,}/  -> 3 occurrence(s)  DFA cross-check: PASS
+    NFA: 10 states, Min DFA: 4 states
     Three or more consecutive down-candles: strong bearish continuation.
 
-bullish_reversal  /D+FU+/  -> 5 occurrence(s)
+bullish_reversal  /D+FU+/  -> 2 occurrence(s)  DFA cross-check: PASS
+    NFA: 14 states, Min DFA: 4 states
     A downtrend, a pause/indecision candle, then upside resumes: classic reversal shape.
 
-bearish_reversal  /U+FD+/  -> 4 occurrence(s)
+bearish_reversal  /U+FD+/  -> 2 occurrence(s)  DFA cross-check: PASS
+    NFA: 14 states, Min DFA: 4 states
     An uptrend, a pause/indecision candle, then downside resumes.
 
-gap_and_go  /GU+/  -> 8 occurrence(s)
+gap_and_go  /GU+/  -> 37 occurrence(s)  DFA cross-check: PASS
+    NFA: 8 states, Min DFA: 3 states
     A gap open immediately followed by sustained upside: momentum breakout.
 
-exhaustion_gap  /U{2,}GD/  -> 1 occurrence(s)
+exhaustion_gap  /U{2,}GD/  -> 1 occurrence(s)  DFA cross-check: PASS
+    NFA: 12 states, Min DFA: 5 states
     A run-up, a gap (often up), then an immediate reversal down: classic exhaustion signal.
 
-indecision_cluster  /F{2,}/  -> 2 occurrence(s)
+indecision_cluster  /F{2,}/  -> 13 occurrence(s)  DFA cross-check: PASS
+    NFA: 8 states, Min DFA: 3 states
     Two or more flat/doji-like candles in a row: the market is undecided, often precedes a breakout.
 
-double_top: NOT run through FA (needs numeric check) — Two peaks of *similar height* separated by a trough: the up/down *shape* (U+DU+D roughly) is regular, but 'similar height' compares actual price magnitudes across candles, which needs a numeric check outside the finite automaton. Handled as: FA flags the U+DU+D shape as a *candidate*, then a small numeric post-filter checks the two peak highs are within ~1% of each other.
+double_top  /U+DU+D/  -> 1 occurrence(s) (regex + numeric peak check)
+    Two peaks of *similar height* separated by a trough: the up/down *shape* (U+DU+D roughly) is regular, but 'similar height' compares actual price magnitudes across candles, which needs a numeric check outside the finite automaton. Handled as: FA flags the U+DU+D shape as a *candidate*, then a small numeric post-filter checks the two peak highs are within ~1.5% of each other.
 

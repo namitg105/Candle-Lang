@@ -16,10 +16,26 @@ languages / automata theory applicable to it at all.
 
 Thresholds are expressed as a fraction of the previous close (e.g. 0.002 = 0.2%)
 so the encoding is scale-invariant across stocks priced very differently.
+
+Gap-priority rule
+------------------
+A single day can simultaneously "gap" and then also move up/down within the
+session. CandleLang resolves this ambiguity with a fixed priority rule:
+
+    1. If the candle opened with a gap beyond `gap_threshold` relative to
+       the previous close, emit 'G' for that candle (the gap event is
+       considered the dominant signal for that day).
+    2. Otherwise classify the candle's own body:
+       - body% >= +threshold  -> 'U'
+       - body% <= -threshold  -> 'D'
+       - otherwise            -> 'F'
+
+This keeps the encoding a *function* SIGMA_encode: Candles* -> {U,D,F,G}*,
+i.e. every price history maps to exactly one string.
 """
 
 from dataclasses import dataclass
-from typing import List, Sequence
+from typing import List, Sequence, Tuple
 
 
 @dataclass
@@ -85,6 +101,48 @@ def encode_candles(
         prev_close = c.close
 
     return "".join(out)
+
+
+def encode_with_trace(
+    candles: Sequence[Candle],
+    body_threshold: float = 0.003,
+    gap_threshold: float = 0.005,
+) -> Tuple[str, List[Tuple[str, str, float, float]]]:
+    """
+    Same as encode_candles, but also returns a parallel list of
+    (date, symbol, gap_pct, body_pct) rows -- useful for the report /
+    appendix so every symbol in the string can be traced back to the
+    exact candle and the exact numbers that produced it.
+    """
+    rows: List[Tuple[str, str, float, float]] = []
+    prev_close = None
+
+    for c in candles:
+        gap_pct = 0.0
+        body_pct = 0.0
+
+        if prev_close is not None and prev_close != 0:
+            gap_pct = (c.open - prev_close) / prev_close
+
+        if c.open != 0:
+            body_pct = (c.close - c.open) / c.open
+
+        if prev_close is not None and prev_close != 0 and abs(gap_pct) >= gap_threshold:
+            symbol = "G"
+        elif c.open == 0:
+            symbol = "F"
+        elif body_pct >= body_threshold:
+            symbol = "U"
+        elif body_pct <= -body_threshold:
+            symbol = "D"
+        else:
+            symbol = "F"
+
+        rows.append((c.date, symbol, round(gap_pct * 100, 3), round(body_pct * 100, 3)))
+        prev_close = c.close
+
+    encoded = "".join(r[1] for r in rows)
+    return encoded, rows
 
 
 def encode_dataframe(df, body_threshold: float = 0.003, gap_threshold: float = 0.005) -> str:
