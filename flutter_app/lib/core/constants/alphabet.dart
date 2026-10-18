@@ -14,7 +14,7 @@ class Alphabet {
 
   static const List<String> symbols = [up, down, flat, gap];
 
-/// Thresholds for encoding classification.
+  /// Thresholds for encoding classification.
   static const double bodyThreshold = 0.003; // 0.3%
   static const double gapThreshold = 0.005; // 0.5%
 }

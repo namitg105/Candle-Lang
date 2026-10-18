@@ -492,3 +492,70 @@ class _RegexParser {
   /// Accept any alphanumeric character as a literal.
   bool _isLiteral(String ch) => RegExp(r'[a-zA-Z0-9]').hasMatch(ch);
 }
+
+/// Builds an NFA fragment-by-fragment using Thompson's Construction.
+class _ThompsonBuilder {
+  int numStates = 0;
+  final Map<int, List<(String?, int)>> edges = {};
+
+  int newState() {
+    final sid = numStates++;
+    edges[sid] = [];
+    return sid;
+  }
+
+  void addEdge(int src, String? symbol, int dst) {
+    edges[src]!.add((symbol, dst));
+  }
+
+  (int, int) build(RegexNode node) {
+    return switch (node) {
+      CharNode(:final value) => () {
+          final s = newState();
+          final a = newState();
+          addEdge(s, value, a);
+          return (s, a);
+        }(),
+      EpsilonNode() => () {
+          final s = newState();
+          final a = newState();
+          addEdge(s, null, a);
+          return (s, a);
+        }(),
+      ConcatNode(:final parts) => () {
+          if (parts.isEmpty) {
+            final s = newState();
+            final a = newState();
+            addEdge(s, null, a);
+            return (s, a);
+          }
+          final startsEnds = parts.map(build).toList();
+          for (var i = 0; i < startsEnds.length - 1; i++) {
+            addEdge(startsEnds[i].$2, null, startsEnds[i + 1].$1);
+          }
+          return (startsEnds.first.$1, startsEnds.last.$2);
+        }(),
+      UnionNode(:final parts) => () {
+          final s = newState();
+          final a = newState();
+          for (final part in parts) {
+            final (ps, pa) = build(part);
+            addEdge(s, null, ps);
+            addEdge(pa, null, a);
+          }
+          return (s, a);
+        }(),
+      StarNode(:final inner) => () {
+          final s = newState();
+          final a = newState();
+          final (ps, pa) = build(inner);
+          addEdge(s, null, ps);
+          addEdge(s, null, a);
+          addEdge(pa, null, ps);
+          addEdge(pa, null, a);
+          return (s, a);
+        }(),
+    };
+  }
+}
+

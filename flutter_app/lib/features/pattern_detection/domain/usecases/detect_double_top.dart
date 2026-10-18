@@ -1,4 +1,3 @@
-import '../../../../core/usecases/usecase.dart';
 import '../../../automaton/domain/entities/match_span.dart';
 import '../repositories/pattern_repository.dart';
 
