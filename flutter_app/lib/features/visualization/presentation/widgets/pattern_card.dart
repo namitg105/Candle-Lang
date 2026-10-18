@@ -5,14 +5,19 @@ import '../../domain/entities/analysis_result.dart';
 import 'confidence_badge.dart';
 
 /// Card showing one pattern's detection results and ML scores.
-///
-/// Displays: pattern name, direction icon, match count,
-/// automaton stats (NFA/DFA/minDFA states), cross-check status,
-/// and a list of individual matches with confidence badges.
 class PatternCard extends StatelessWidget {
   final PatternResultWithScores pattern;
+  final void Function(int start, int end, bool isBullish)? onSelectMatch;
+  final int? selectedStart;
+  final int? selectedEnd;
 
-  const PatternCard({super.key, required this.pattern});
+  const PatternCard({
+    super.key,
+    required this.pattern,
+    this.onSelectMatch,
+    this.selectedStart,
+    this.selectedEnd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +72,6 @@ class PatternCard extends StatelessWidget {
     );
   }
 
-  /// Shows NFA states → DFA states → minimized DFA states.
   Widget _buildAutomatonStats(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -104,8 +108,11 @@ class PatternCard extends StatelessWidget {
   Widget _buildMatchList(ThemeData theme) {
     return Column(
       children: pattern.matches.map((m) {
+        final isSelected = selectedStart == m.start && selectedEnd == m.end;
         return ListTile(
           dense: true,
+          selected: isSelected,
+          selectedTileColor: AppTheme.bullishColor.withValues(alpha: 0.1),
           leading: Text(
             '[${m.start}–${m.end})',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -120,7 +127,17 @@ class PatternCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          trailing: ConfidenceBadge(confidence: m.confidence),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConfidenceBadge(confidence: m.confidence),
+              const SizedBox(width: 8),
+              const Icon(Icons.visibility, size: 16, color: AppTheme.textMuted),
+            ],
+          ),
+          onTap: () {
+            onSelectMatch?.call(m.start, m.end, pattern.isBullish);
+          },
         );
       }).toList(),
     );

@@ -13,6 +13,8 @@ import 'features/encoding/presentation/bloc/encoding_bloc.dart';
 // ── Automaton feature ─────────────────────────────────────────────────
 import 'features/automaton/data/repositories/automaton_repository_impl.dart';
 import 'features/automaton/domain/repositories/automaton_repository.dart';
+import 'features/automaton/domain/usecases/inspect_automaton.dart';
+import 'features/automaton/presentation/bloc/automaton_bloc.dart';
 
 // ── Pattern detection feature ─────────────────────────────────────────
 import 'features/pattern_detection/data/repositories/pattern_repository_impl.dart';
@@ -98,6 +100,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => DetectAllPatterns(sl()));
   sl.registerLazySingleton(() => ScoreMatches(sl()));
   sl.registerLazySingleton(() => RunFullAnalysis(sl()));
+  sl.registerLazySingleton(() => InspectAutomaton(sl()));
 
   // ╔══════════════════════════════════════════════════════════════════╗
   // ║  BLoCs  (registered as factory — new instance per screen)       ║
@@ -111,5 +114,9 @@ Future<void> init() async {
 
   sl.registerFactory(
     () => AnalysisBloc(runFullAnalysis: sl()),
+  );
+
+  sl.registerFactory(
+    () => AutomatonBloc(inspectAutomaton: sl()),
   );
 }

@@ -5,18 +5,21 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../encoding/domain/entities/candle.dart';
 
-/// Custom-painted OHLC candlestick chart widget.
-///
-/// Uses [CustomPainter] to draw wicks and bodies directly on canvas.
-/// Scrolls horizontally when candles exceed the visible width.
+/// Custom-painted OHLC candlestick chart with pattern highlight support.
 class CandlestickChart extends StatelessWidget {
   final List<Candle> candles;
   final double height;
+  final int? highlightStart;
+  final int? highlightEnd;
+  final Color? highlightColor;
 
   const CandlestickChart({
     super.key,
     required this.candles,
     this.height = 260,
+    this.highlightStart,
+    this.highlightEnd,
+    this.highlightColor,
   });
 
   @override
@@ -28,8 +31,7 @@ class CandlestickChart extends StatelessWidget {
       );
     }
 
-    // Each candle gets a fixed width slot; scroll if needed.
-    const candleSlotWidth = 6.0;
+    const candleSlotWidth = 7.0;
     final totalWidth = candles.length * candleSlotWidth;
 
     return SizedBox(
@@ -38,7 +40,12 @@ class CandlestickChart extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: CustomPaint(
           size: Size(math.max(totalWidth, 300), height),
-          painter: _CandlestickPainter(candles: candles),
+          painter: _CandlestickPainter(
+            candles: candles,
+            highlightStart: highlightStart,
+            highlightEnd: highlightEnd,
+            highlightColor: highlightColor ?? AppTheme.bullishColor,
+          ),
         ),
       ),
     );
@@ -47,14 +54,21 @@ class CandlestickChart extends StatelessWidget {
 
 class _CandlestickPainter extends CustomPainter {
   final List<Candle> candles;
+  final int? highlightStart;
+  final int? highlightEnd;
+  final Color highlightColor;
 
-  _CandlestickPainter({required this.candles});
+  _CandlestickPainter({
+    required this.candles,
+    this.highlightStart,
+    this.highlightEnd,
+    required this.highlightColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (candles.isEmpty) return;
 
-    // Compute price range for Y-axis scaling.
     double minPrice = double.infinity;
     double maxPrice = double.negativeInfinity;
     for (final c in candles) {
@@ -64,22 +78,54 @@ class _CandlestickPainter extends CustomPainter {
     final priceRange = maxPrice - minPrice;
     if (priceRange == 0) return;
 
-    // Leave 5% padding top and bottom.
     final paddedMin = minPrice - priceRange * 0.05;
     final paddedMax = maxPrice + priceRange * 0.05;
     final paddedRange = paddedMax - paddedMin;
 
     final slotWidth = size.width / candles.length;
-    final bodyWidth = slotWidth * 0.6;
+    final bodyWidth = slotWidth * 0.65;
 
-    // Draw grid lines.
     _drawGrid(canvas, size, paddedMin, paddedMax);
+
+    // Draw match highlight zone if selected
+    if (highlightStart != null &&
+        highlightEnd != null &&
+        highlightStart! >= 0 &&
+        highlightEnd! <= candles.length &&
+        highlightStart! < highlightEnd!) {
+      final left = highlightStart! * slotWidth;
+      final width = (highlightEnd! - highlightStart!) * slotWidth;
+
+      final highlightPaint = Paint()
+        ..color = highlightColor.withValues(alpha: 0.15)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(left, 0, width, size.height),
+          const Radius.circular(6),
+        ),
+        highlightPaint,
+      );
+
+      final borderPaint = Paint()
+        ..color = highlightColor.withValues(alpha: 0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(left, 0, width, size.height),
+          const Radius.circular(6),
+        ),
+        borderPaint,
+      );
+    }
 
     for (int i = 0; i < candles.length; i++) {
       final c = candles[i];
       final x = i * slotWidth + slotWidth / 2;
 
-      // Y conversion: top of canvas = maxPrice, bottom = minPrice.
       double toY(double price) =>
           size.height - ((price - paddedMin) / paddedRange) * size.height;
 
@@ -93,10 +139,10 @@ class _CandlestickPainter extends CustomPainter {
         ..color = color
         ..strokeWidth = 1;
 
-      // Draw wick (high-low line).
+      // Draw wick
       canvas.drawLine(Offset(x, highY), Offset(x, lowY), paint);
 
-      // Draw body (open-close rectangle).
+      // Draw body
       final bodyTop = math.min(openY, closeY);
       final bodyBottom = math.max(openY, closeY);
       final bodyHeight = math.max(bodyBottom - bodyTop, 1.0);
@@ -126,6 +172,8 @@ class _CandlestickPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CandlestickPainter oldDelegate) {
-    return oldDelegate.candles != candles;
+    return oldDelegate.candles != candles ||
+        oldDelegate.highlightStart != highlightStart ||
+        oldDelegate.highlightEnd != highlightEnd;
   }
 }

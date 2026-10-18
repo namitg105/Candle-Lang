@@ -10,18 +10,36 @@ import '../widgets/candlestick_chart.dart';
 import '../widgets/pattern_card.dart';
 
 /// Main screen of the CandleLang app.
-///
-/// Shows a candlestick chart, the encoded string, summary stats,
-/// and a scrollable list of detected patterns with ML confidence scores.
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int? _highlightStart;
+  int? _highlightEnd;
+  Color? _highlightColor;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CandleLang'),
+        title: const Text('CandleLang Market Analyzer'),
         actions: [
+          if (_highlightStart != null)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              tooltip: 'Clear highlight',
+              onPressed: () {
+                setState(() {
+                  _highlightStart = null;
+                  _highlightEnd = null;
+                  _highlightColor = null;
+                });
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Re-run analysis',
@@ -117,35 +135,57 @@ class HomePage extends StatelessWidget {
     final theme = Theme.of(context);
     return ListView(
       children: [
-        // Header stats.
+        // Header stats
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            '${result.symbol}  •  ${result.numCandles} candles',
-            style: theme.textTheme.titleMedium,
+          child: Row(
+            children: [
+              Text(
+                '${result.symbol}  •  ${result.numCandles} candles',
+                style: theme.textTheme.titleMedium,
+              ),
+              const Spacer(),
+              if (_highlightStart != null && _highlightEnd != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (_highlightColor ?? AppTheme.bullishColor).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _highlightColor ?? AppTheme.bullishColor),
+                  ),
+                  child: Text(
+                    'Highlight: [$_highlightStart–$_highlightEnd)',
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  ),
+                ),
+            ],
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             result.dateRange,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: AppTheme.textMuted),
+            style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.textMuted),
           ),
         ),
 
-        // Candlestick chart.
+        // Interactive Candlestick chart
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: CandlestickChart(candles: result.candles),
+              child: CandlestickChart(
+                candles: result.candles,
+                highlightStart: _highlightStart,
+                highlightEnd: _highlightEnd,
+                highlightColor: _highlightColor,
+              ),
             ),
           ),
         ),
 
-        // Encoded string preview.
+        // Encoded string preview
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Card(
@@ -154,8 +194,7 @@ class HomePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Encoded String',
-                      style: theme.textTheme.titleSmall),
+                  Text('Encoded String (Σ = {U, D, F, G})', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 6),
                   Text(
                     result.encodedString,
@@ -168,9 +207,8 @@ class HomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${result.encodedString.length} symbols',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppTheme.textMuted),
+                    '${result.encodedString.length} symbols total',
+                    style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.textMuted),
                   ),
                 ],
               ),
@@ -178,17 +216,46 @@ class HomePage extends StatelessWidget {
           ),
         ),
 
-        // Pattern results header.
+        // Pattern results header
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(
-            'Detected Patterns (${result.patterns.length})',
-            style: theme.textTheme.titleMedium,
+          child: Row(
+            children: [
+              Text(
+                'Detected Patterns (${result.patterns.length})',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                '• Tap a match to highlight on chart',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+              ),
+            ],
           ),
         ),
 
-        // Pattern cards.
-        ...result.patterns.map((p) => PatternCard(pattern: p)),
+        // Pattern cards
+        ...result.patterns.map(
+          (p) => PatternCard(
+            pattern: p,
+            selectedStart: _highlightStart,
+            selectedEnd: _highlightEnd,
+            onSelectMatch: (start, end, isBullish) {
+              setState(() {
+                _highlightStart = start;
+                _highlightEnd = end;
+                _highlightColor = isBullish ? AppTheme.bullishColor : AppTheme.bearishColor;
+              });
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  duration: const Duration(seconds: 2),
+                  content: Text('Highlighted ${p.displayName} match [$start–$end) on chart'),
+                ),
+              );
+            },
+          ),
+        ),
 
         const SizedBox(height: 24),
       ],
