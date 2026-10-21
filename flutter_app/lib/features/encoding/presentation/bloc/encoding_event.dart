@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/constants/supported_symbols.dart';
+
 /// Events for the Encoding BLoC.
 abstract class EncodingEvent extends Equatable {
   const EncodingEvent();
@@ -8,7 +10,14 @@ abstract class EncodingEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Triggers fetching candle data and encoding it.
+/// Triggers fetching candle data for [symbol] and encoding it.
 class FetchAndEncodeRequested extends EncodingEvent {
-  const FetchAndEncodeRequested();
+  final String symbol;
+
+  const FetchAndEncodeRequested({
+    this.symbol = SupportedSymbols.defaultSymbol,
+  });
+
+  @override
+  List<Object?> get props => [symbol];
 }

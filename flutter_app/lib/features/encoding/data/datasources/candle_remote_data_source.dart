@@ -7,10 +7,11 @@ import '../models/candle_model.dart';
 
 /// Contract for fetching OHLC candle data from a remote source.
 abstract class CandleRemoteDataSource {
-  /// Fetches the latest one-minute OHLC candles from Twelve Data.
+  /// Fetches the latest one-minute OHLC candles for [symbol] (e.g.
+  /// 'AAPL', 'MSFT') from Twelve Data.
   ///
   /// Throws [ServerException] on HTTP error or network failure.
-  Future<List<CandleModel>> fetchCandles();
+  Future<List<CandleModel>> fetchCandles({required String symbol});
 }
 
 class CandleRemoteDataSourceImpl implements CandleRemoteDataSource {
@@ -21,15 +22,14 @@ class CandleRemoteDataSourceImpl implements CandleRemoteDataSource {
   // tradeoff rather than wiring up --dart-define for a course project).
   // Rotate this key if the project is ever reused beyond coursework.
   static const _apiKey = 'eda7a0c493564cf8bf76fba729b99b62';
-  static const _symbol = 'AAPL';
 
   CandleRemoteDataSourceImpl({required this.client});
 
   @override
-  Future<List<CandleModel>> fetchCandles() async {
+  Future<List<CandleModel>> fetchCandles({required String symbol}) async {
     try {
       final requestUri = Uri.https('api.twelvedata.com', '/time_series', {
-        'symbol': _symbol,
+        'symbol': symbol,
         'interval': '1min',
         'outputsize': '120',
         'apikey': _apiKey,
@@ -38,7 +38,7 @@ class CandleRemoteDataSourceImpl implements CandleRemoteDataSource {
 
       if (response.statusCode != 200) {
         throw ServerException(
-          'Live market request failed with status ${response.statusCode}',
+          'Live market request for $symbol failed with status ${response.statusCode}',
         );
       }
 
@@ -50,7 +50,7 @@ class CandleRemoteDataSourceImpl implements CandleRemoteDataSource {
       }
       final values = payload['values'];
       if (values is! List || values.isEmpty) {
-        throw const ServerException('Live market API returned no candles.');
+        throw ServerException('Live market API returned no candles for $symbol.');
       }
 
       final candles = values

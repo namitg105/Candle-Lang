@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/constants/alphabet.dart';
+import '../../../../core/constants/supported_symbols.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/candle.dart';
@@ -27,12 +28,20 @@ class EncodingRepositoryImpl implements EncodingRepository {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<Either<Failure, List<Candle>>> fetchCandles() async {
+  Future<Either<Failure, List<Candle>>> fetchCandles({
+    required String symbol,
+  }) async {
     try {
-      final candles = await remoteDataSource.fetchCandles();
+      final candles = await remoteDataSource.fetchCandles(symbol: symbol);
       return Right(candles);
-    } on ServerException {
-      // Remote failed — try the bundled asset.
+    } on ServerException catch (e) {
+      // The bundled offline asset only ever holds AAPL data, so it can only
+      // stand in for a live failure when AAPL itself was requested --
+      // otherwise we'd silently show AAPL candles mislabeled as whatever
+      // symbol the user actually picked.
+      if (symbol != SupportedSymbols.defaultSymbol) {
+        return Left(ServerFailure(e.message));
+      }
       try {
         final candles = await localDataSource.fetchCandles();
         return Right(candles);

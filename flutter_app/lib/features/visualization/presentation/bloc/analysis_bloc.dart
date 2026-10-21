@@ -1,13 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/usecases/usecase.dart';
 import '../../domain/usecases/run_full_analysis.dart';
 import 'analysis_event.dart';
 import 'analysis_state.dart';
 
 /// BLoC that drives the visualization screen.
 ///
-/// Receives [RunAnalysisRequested] → calls the use case →
+/// Receives [RunAnalysisRequested] -> calls the use case ->
 /// emits [AnalysisLoading] then [AnalysisLoaded] or [AnalysisError].
 class AnalysisBloc extends Bloc<AnalysisEvent, AnalysisState> {
   final RunFullAnalysis runFullAnalysis;
@@ -23,7 +22,7 @@ class AnalysisBloc extends Bloc<AnalysisEvent, AnalysisState> {
   ) async {
     emit(const AnalysisLoading());
 
-    final result = await runFullAnalysis(const NoParams());
+    final result = await runFullAnalysis(event.symbol);
 
     result.fold(
       (failure) => emit(AnalysisError(failure.message)),

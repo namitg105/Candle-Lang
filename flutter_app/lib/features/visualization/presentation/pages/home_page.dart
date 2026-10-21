@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/supported_symbols.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/stock_symbol_selector.dart';
 import '../../../encoding/domain/entities/candle.dart';
 import '../../domain/entities/analysis_result.dart';
 import '../bloc/analysis_bloc.dart';
@@ -19,9 +21,16 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  String _selectedSymbol = SupportedSymbols.defaultSymbol;
   int? _highlightStart;
   int? _highlightEnd;
   Color? _highlightColor;
+
+  void _runAnalysis() {
+    context
+        .read<AnalysisBloc>()
+        .add(RunAnalysisRequested(symbol: _selectedSymbol));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,57 +53,71 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Re-run analysis',
-            onPressed: () {
-              context.read<AnalysisBloc>().add(const RunAnalysisRequested());
-            },
+            onPressed: _runAnalysis,
           ),
         ],
       ),
-      body: BlocBuilder<AnalysisBloc, AnalysisState>(
-        builder: (context, state) {
-          if (state is AnalysisInitial) {
-            return _buildWelcome(context);
-          }
-          if (state is AnalysisLoading) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Running CandleLang pipeline…'),
-                ],
-              ),
-            );
-          }
-          if (state is AnalysisError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: AppTheme.bearishColor),
-                    const SizedBox(height: 12),
-                    Text(state.message, textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () => context
-                          .read<AnalysisBloc>()
-                          .add(const RunAnalysisRequested()),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
+      body: Column(
+        children: [
+          // Stock picker: switching stocks re-runs the whole
+          // fetch -> encode -> detect -> score pipeline for the new symbol.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: StockSymbolSelector(
+              selected: _selectedSymbol,
+              onSelected: (symbol) {
+                setState(() => _selectedSymbol = symbol);
+                _runAnalysis();
+              },
+            ),
+          ),
+          Expanded(
+            child: BlocBuilder<AnalysisBloc, AnalysisState>(
+              builder: (context, state) {
+                if (state is AnalysisInitial) {
+                  return _buildWelcome(context);
+                }
+                if (state is AnalysisLoading) {
+                  return const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Running CandleLang pipeline…'),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            );
-          }
+                  );
+                }
+                if (state is AnalysisError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline,
+                              size: 48, color: AppTheme.bearishColor),
+                          const SizedBox(height: 12),
+                          Text(state.message, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: _runAnalysis,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
 
-          final result = (state as AnalysisLoaded).result;
-          return _buildResults(context, result);
-        },
+                final result = (state as AnalysisLoaded).result;
+                return _buildResults(context, result);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -121,9 +144,7 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
-            onPressed: () {
-              context.read<AnalysisBloc>().add(const RunAnalysisRequested());
-            },
+            onPressed: _runAnalysis,
             icon: const Icon(Icons.play_arrow),
             label: const Text('Run Analysis'),
           ),

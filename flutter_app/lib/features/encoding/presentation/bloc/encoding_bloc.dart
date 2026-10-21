@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/usecases/usecase.dart';
 import '../../domain/usecases/encode_candles.dart';
 import '../../domain/usecases/fetch_candle_data.dart';
 import 'encoding_event.dart';
@@ -24,8 +23,8 @@ class EncodingBloc extends Bloc<EncodingEvent, EncodingState> {
   ) async {
     emit(const EncodingLoading());
 
-    // Step 1: Fetch candle data.
-    final candlesResult = await fetchCandleData(NoParams());
+    // Step 1: Fetch candle data for the requested symbol.
+    final candlesResult = await fetchCandleData(event.symbol);
 
     await candlesResult.fold(
       (failure) async {

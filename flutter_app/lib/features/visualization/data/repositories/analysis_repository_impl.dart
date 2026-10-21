@@ -26,9 +26,11 @@ class AnalysisRepositoryImpl implements AnalysisRepository {
   });
 
   @override
-  Future<Either<Failure, AnalysisResult>> runFullAnalysis() async {
-    // Step 1: Fetch OHLC data.
-    final candlesResult = await encodingRepository.fetchCandles();
+  Future<Either<Failure, AnalysisResult>> runFullAnalysis({
+    required String symbol,
+  }) async {
+    // Step 1: Fetch OHLC data for the requested symbol.
+    final candlesResult = await encodingRepository.fetchCandles(symbol: symbol);
     if (candlesResult.isLeft()) {
       return Left(candlesResult.fold((f) => f, (_) => throw StateError('')));
     }
@@ -86,7 +88,7 @@ class AnalysisRepositoryImpl implements AnalysisRepository {
     final firstDate = candles.first.date;
     final lastDate = candles.last.date;
     return Right(AnalysisResult(
-      symbol: 'AAPL',
+      symbol: symbol,
       dateRange: '$firstDate → $lastDate',
       numCandles: candles.length,
       encodedString: encodedResult.encoded,
