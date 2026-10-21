@@ -268,7 +268,7 @@ const double _kPadding = 50.0;
 
 class _GraphLayout {
   final Map<int, Offset> positions = {};
-  final Size canvasSize;
+  late final Size canvasSize;
 
   _GraphLayout({required int numStates, required int startState, required List<GraphEdgeSpec> edges}) {
     final adjacency = <int, List<int>>{};
