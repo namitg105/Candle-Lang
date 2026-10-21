@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../encoding/domain/entities/candle.dart';
 import '../../domain/entities/analysis_result.dart';
 import '../bloc/analysis_bloc.dart';
 import '../bloc/analysis_event.dart';
@@ -147,15 +148,19 @@ class _HomePageState extends State<HomePage> {
               const Spacer(),
               if (_highlightStart != null && _highlightEnd != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: (_highlightColor ?? AppTheme.bullishColor).withValues(alpha: 0.2),
+                    color: (_highlightColor ?? AppTheme.bullishColor)
+                        .withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _highlightColor ?? AppTheme.bullishColor),
+                    border: Border.all(
+                        color: _highlightColor ?? AppTheme.bullishColor),
                   ),
                   child: Text(
                     'Highlight: [$_highlightStart–$_highlightEnd)',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 11),
                   ),
                 ),
             ],
@@ -165,9 +170,17 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             result.dateRange,
-            style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.textMuted),
+            style:
+                theme.textTheme.bodySmall?.copyWith(color: AppTheme.textMuted),
           ),
         ),
+
+        // Exact values for checking the app against the provider response.
+        if (result.candles.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _LatestCandleCheck(candle: result.candles.last),
+          ),
 
         // Interactive Candlestick chart
         Padding(
@@ -194,7 +207,8 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Encoded String (Σ = {U, D, F, G})', style: theme.textTheme.titleSmall),
+                  Text('Encoded String (Σ = {U, D, F, G})',
+                      style: theme.textTheme.titleSmall),
                   const SizedBox(height: 6),
                   Text(
                     result.encodedString,
@@ -208,7 +222,8 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 4),
                   Text(
                     '${result.encodedString.length} symbols total',
-                    style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.textMuted),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppTheme.textMuted),
                   ),
                 ],
               ),
@@ -244,13 +259,15 @@ class _HomePageState extends State<HomePage> {
               setState(() {
                 _highlightStart = start;
                 _highlightEnd = end;
-                _highlightColor = isBullish ? AppTheme.bullishColor : AppTheme.bearishColor;
+                _highlightColor =
+                    isBullish ? AppTheme.bullishColor : AppTheme.bearishColor;
               });
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   duration: const Duration(seconds: 2),
-                  content: Text('Highlighted ${p.displayName} match [$start–$end) on chart'),
+                  content: Text(
+                      'Highlighted ${p.displayName} match [$start–$end) on chart'),
                 ),
               );
             },
@@ -259,6 +276,57 @@ class _HomePageState extends State<HomePage> {
 
         const SizedBox(height: 24),
       ],
+    );
+  }
+}
+
+/// Shows the exact newest OHLC values so users can compare them with the
+/// newest object in Twelve Data's `values` response.
+class _LatestCandleCheck extends StatelessWidget {
+  final Candle candle;
+
+  const _LatestCandleCheck({required this.candle});
+
+  @override
+  Widget build(BuildContext context) {
+    final fields = [
+      ('Open', candle.open),
+      ('High', candle.high),
+      ('Low', candle.low),
+      ('Close', candle.close),
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('Live feed',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('Newest candle: ${candle.date}',
+                style: const TextStyle(fontFamily: 'monospace')),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 16,
+              runSpacing: 6,
+              children: fields
+                  .map(
+                    (field) => Text(
+                      '${field.$1}: ${field.$2.toStringAsFixed(2)}',
+                      style: const TextStyle(fontFamily: 'monospace'),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
   }
 }

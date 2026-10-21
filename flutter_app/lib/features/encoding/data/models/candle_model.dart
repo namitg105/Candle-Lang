@@ -61,6 +61,25 @@ class CandleModel extends Candle {
     );
   }
 
+  /// Parses one candle from Twelve Data's `time_series` JSON response.
+  /// Twelve Data sends price values as strings, so this model converts them
+  /// into Dart doubles before the domain layer uses them.
+  factory CandleModel.fromTwelveDataJson(Map<String, dynamic> json) {
+    double number(String key) {
+      final value = json[key];
+      if (value is num) return value.toDouble();
+      return double.parse(value as String);
+    }
+
+    return CandleModel(
+      date: json['datetime'] as String,
+      open: number('open'),
+      high: number('high'),
+      low: number('low'),
+      close: number('close'),
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'date': date,
