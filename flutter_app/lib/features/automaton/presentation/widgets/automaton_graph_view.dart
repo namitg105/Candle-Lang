@@ -60,8 +60,9 @@ List<GraphEdgeSpec> buildDfaEdges(Dfa dfa) {
 /// the start state so the diagram reads the same direction as the input
 /// string flows through it.
 ///
-/// Pan/zoom via [InteractiveViewer] so every state and transition stays
-/// reachable even for automata too wide to fit the card at once.
+/// No pan/zoom — the whole diagram is scaled (never enlarged, only
+/// shrunk) to fit the card's width, so every state and transition is
+/// visible at once without scrolling.
 class AutomatonGraphView extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -185,38 +186,55 @@ class AutomatonGraphView extends StatelessWidget {
             const SizedBox(height: 10),
             _buildLegend(theme),
             const SizedBox(height: 10),
-            Container(
-              height: math.min(420.0, math.max(220.0, layout.canvasSize.height + 40)),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.gridColor),
-              ),
-              clipBehavior: Clip.hardEdge,
-              child: InteractiveViewer(
-                minScale: 0.4,
-                maxScale: 3.0,
-                boundaryMargin: const EdgeInsets.all(60),
-                constrained: false,
-                child: SizedBox(
-                  width: layout.canvasSize.width,
-                  height: layout.canvasSize.height,
-                  child: CustomPaint(
-                    painter: _GraphPainter(
-                      layout: layout,
-                      edges: edges,
-                      acceptStates: acceptStates,
-                      startState: startState,
-                      activeState: activeState,
-                      stateLabels: stateLabels,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // No pan/zoom: scale the whole diagram down (never up,
+                // so small diagrams don't look blown-up) to fit the
+                // card's width, and size the box to match exactly —
+                // every state and transition is on-screen at once.
+                final availableWidth = constraints.maxWidth;
+                final scale = availableWidth / layout.canvasSize.width > 1.0
+                    ? 1.0
+                    : availableWidth / layout.canvasSize.width;
+                final displayWidth = layout.canvasSize.width * scale;
+                final displayHeight = layout.canvasSize.height * scale;
+
+                return Container(
+                  width: double.infinity,
+                  height: displayHeight + 16,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.gridColor),
+                  ),
+                  alignment: Alignment.center,
+                  child: SizedBox(
+                    width: displayWidth,
+                    height: displayHeight,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: SizedBox(
+                        width: layout.canvasSize.width,
+                        height: layout.canvasSize.height,
+                        child: CustomPaint(
+                          painter: _GraphPainter(
+                            layout: layout,
+                            edges: edges,
+                            acceptStates: acceptStates,
+                            startState: startState,
+                            activeState: activeState,
+                            stateLabels: stateLabels,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
             const SizedBox(height: 6),
             Text(
-              'Pinch or scroll to zoom, drag to pan — the whole diagram is here even if it doesn\'t fit at once.',
+              'Every state and transition is shown at once — the diagram scales to fit your screen.',
               style: theme.textTheme.labelSmall?.copyWith(color: AppTheme.textMuted, fontSize: 10),
             ),
           ],
