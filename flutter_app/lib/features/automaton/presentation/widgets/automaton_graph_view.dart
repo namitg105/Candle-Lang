@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/alphabet.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/dfa.dart';
 import '../../domain/entities/nfa.dart';
@@ -39,10 +40,27 @@ List<GraphEdgeSpec> buildNfaEdges(Nfa nfa) {
       .toList();
 }
 
+/// True when at least one DFA state is missing a transition for one of the
+/// 4 alphabet symbols -- i.e. some input would currently just fall off the
+/// transition table (reject) with no explicit arrow to show it.
+bool dfaNeedsTrapState(Dfa dfa) {
+  for (var state = 0; state < dfa.numStates; state++) {
+    final defined = dfa.transitions[state]?.keys.toSet() ?? const <String>{};
+    if (defined.length < Alphabet.symbols.length) return true;
+  }
+  return false;
+}
+
 /// Builds the edge list for a [Dfa], grouping every (from, to) pair into
 /// one labeled arrow (e.g. a state that transitions to the same target on
 /// both D and F shows a single "D, F" arrow rather than two stacked ones).
-List<GraphEdgeSpec> buildDfaEdges(Dfa dfa) {
+///
+/// When [trapState] is given, every symbol a state does NOT already have a
+/// real transition for is grouped and routed there instead of being left
+/// undrawn -- so all 4 inputs (U, D, F, G) show up from every state,
+/// either continuing the match or being rejected explicitly. The trap
+/// state self-loops on all 4 symbols too (once rejected, always rejected).
+List<GraphEdgeSpec> buildDfaEdges(Dfa dfa, {int? trapState}) {
   final grouped = <(int, int), List<String>>{};
   for (final fromEntry in dfa.transitions.entries) {
     final from = fromEntry.key;
@@ -50,6 +68,18 @@ List<GraphEdgeSpec> buildDfaEdges(Dfa dfa) {
       grouped.putIfAbsent((from, symEntry.value), () => []).add(symEntry.key);
     }
   }
+
+  if (trapState != null) {
+    for (var state = 0; state < dfa.numStates; state++) {
+      final defined = dfa.transitions[state]?.keys.toSet() ?? const <String>{};
+      final missing = Alphabet.symbols.where((s) => !defined.contains(s)).toList();
+      if (missing.isNotEmpty) {
+        grouped.putIfAbsent((state, trapState), () => []).addAll(missing);
+      }
+    }
+    grouped[(trapState, trapState)] = List<String>.from(Alphabet.symbols);
+  }
+
   return grouped.entries
       .map((e) => GraphEdgeSpec(from: e.key.$1, to: e.key.$2, label: e.value.join(', ')))
       .toList();
@@ -74,6 +104,12 @@ class AutomatonGraphView extends StatelessWidget {
   final int? activeState;
   final String caption;
 
+  /// When set, this id (always == [numStates], one past the real automaton
+  /// states) is an extra "dead/reject" node added purely for display, so a
+  /// DFA diagram can show all 4 inputs from every real state instead of
+  /// leaving "no transition" implicit.
+  final int? trapState;
+
   const AutomatonGraphView({
     super.key,
     required this.title,
@@ -85,6 +121,7 @@ class AutomatonGraphView extends StatelessWidget {
     this.stateLabels,
     this.activeState,
     required this.caption,
+    this.trapState,
   });
 
   /// Convenience constructor straight from an [Nfa].
@@ -99,8 +136,10 @@ class AutomatonGraphView extends StatelessWidget {
       edges: buildNfaEdges(nfa),
       startState: nfa.start,
       acceptStates: {nfa.accept},
-      caption:
-          'Every ε-transition the regex AST produced is drawn explicitly — nothing is collapsed.',
+      caption: 'Every ε-transition the regex AST produced is drawn explicitly — '
+          'nothing is collapsed. NFAs don\'t get a "dead" state like DFAs do: a '
+          'thread with no matching transition just stops, while any other '
+          'active threads keep going.',
     );
   }
 
@@ -111,20 +150,28 @@ class AutomatonGraphView extends StatelessWidget {
     required Dfa dfa,
     int? activeState,
     String title = 'Minimized DFA',
-    String caption =
-        'Missing arrows mean "no candle in Σ continues the match from here" — the DFA rejects there.',
+    String? caption,
     IconData icon = Icons.hub,
   }) {
+    final needsTrap = dfaNeedsTrapState(dfa);
+    final trapState = needsTrap ? dfa.numStates : null;
     return AutomatonGraphView(
       title: title,
       icon: icon,
       numStates: dfa.numStates,
-      edges: buildDfaEdges(dfa),
+      edges: buildDfaEdges(dfa, trapState: trapState),
       startState: dfa.start,
       acceptStates: dfa.accepts,
       stateLabels: dfa.stateLabels,
       activeState: activeState,
-      caption: caption,
+      trapState: trapState,
+      caption: caption ??
+          (needsTrap
+              ? 'All 4 inputs (U, D, F, G) are shown from every state — several '
+                  'inputs sharing a target are combined on one arrow. An input '
+                  'that would reject the match is routed to the dashed "dead" '
+                  'state instead of being left undrawn.'
+              : 'Every state already has a real transition for all 4 inputs — no dead state needed here.'),
     );
   }
 
@@ -147,7 +194,8 @@ class AutomatonGraphView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final layout = _GraphLayout(numStates: numStates, startState: startState, edges: edges);
+    final totalLayoutStates = numStates + (trapState != null ? 1 : 0);
+    final layout = _GraphLayout(numStates: totalLayoutStates, startState: startState, edges: edges);
 
     return Card(
       child: Padding(
@@ -176,6 +224,21 @@ class AutomatonGraphView extends StatelessWidget {
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                   ),
                 ),
+                if (trapState != null) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+                    ),
+                    child: const Text(
+                      '+1 dead state',
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.redAccent),
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 4),
@@ -224,6 +287,7 @@ class AutomatonGraphView extends StatelessWidget {
                             startState: startState,
                             activeState: activeState,
                             stateLabels: stateLabels,
+                            trapState: trapState,
                           ),
                         ),
                       ),
@@ -266,6 +330,8 @@ class AutomatonGraphView extends StatelessWidget {
         chip(circleSwatch(Colors.blueAccent), 'start state'),
         chip(circleSwatch(AppTheme.bullishColor, doubled: true), 'accept state'),
         chip(circleSwatch(AppTheme.neutralColor), 'current (simulation)'),
+        if (trapState != null)
+          chip(circleSwatch(Colors.redAccent.withValues(alpha: 0.75)), 'dead state (rejects)'),
       ],
     );
   }
@@ -378,6 +444,7 @@ class _GraphPainter extends CustomPainter {
   final int startState;
   final int? activeState;
   final Map<int, String>? stateLabels;
+  final int? trapState;
 
   _GraphPainter({
     required this.layout,
@@ -386,6 +453,7 @@ class _GraphPainter extends CustomPainter {
     required this.startState,
     required this.activeState,
     required this.stateLabels,
+    this.trapState,
   });
 
   @override
@@ -504,16 +572,21 @@ class _GraphPainter extends CustomPainter {
   }
 
   void _drawNode(Canvas canvas, int state, Offset center) {
-    final isStart = state == startState;
-    final isAccept = acceptStates.contains(state);
-    final isActive = state == activeState;
+    final isTrap = trapState != null && state == trapState;
+    final isStart = !isTrap && state == startState;
+    final isAccept = !isTrap && acceptStates.contains(state);
+    final isActive = !isTrap && state == activeState;
 
-    final fillColor = isActive
-        ? AppTheme.neutralColor.withValues(alpha: 0.25)
-        : const Color(0xFF1E1E1E);
-    final borderColor = isActive
-        ? AppTheme.neutralColor
-        : (isAccept ? AppTheme.bullishColor : (isStart ? Colors.blueAccent : Colors.white54));
+    final fillColor = isTrap
+        ? const Color(0xFF2A1515)
+        : (isActive
+            ? AppTheme.neutralColor.withValues(alpha: 0.25)
+            : const Color(0xFF1E1E1E));
+    final borderColor = isTrap
+        ? Colors.redAccent.withValues(alpha: 0.75)
+        : (isActive
+            ? AppTheme.neutralColor
+            : (isAccept ? AppTheme.bullishColor : (isStart ? Colors.blueAccent : Colors.white54)));
 
     canvas.drawCircle(center, _kNodeRadius, Paint()..color = fillColor);
     canvas.drawCircle(
@@ -548,10 +621,10 @@ class _GraphPainter extends CustomPainter {
 
     final tp = TextPainter(
       text: TextSpan(
-        text: 'q$state',
+        text: isTrap ? 'dead' : 'q$state',
         style: TextStyle(
-          color: isActive ? Colors.black : Colors.white,
-          fontSize: 12,
+          color: isActive ? Colors.black : (isTrap ? Colors.redAccent : Colors.white),
+          fontSize: isTrap ? 10 : 12,
           fontWeight: FontWeight.bold,
           fontFamily: 'monospace',
         ),
