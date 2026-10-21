@@ -50,7 +50,8 @@ class CandleRemoteDataSourceImpl implements CandleRemoteDataSource {
       }
       final values = payload['values'];
       if (values is! List || values.isEmpty) {
-        throw ServerException('Live market API returned no candles for $symbol.');
+        throw ServerException(
+            'Live market API returned no candles for $symbol.');
       }
 
       final candles = values

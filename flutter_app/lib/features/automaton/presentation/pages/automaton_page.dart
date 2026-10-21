@@ -96,6 +96,12 @@ class _AutomatonPageState extends State<AutomatonPage> {
                 AutomatonGraphView.nfa(nfa: state.inspection.nfa),
                 const SizedBox(height: 16),
 
+                // The raw Subset-Construction DFA, before minimization —
+                // shown so the NFA -> Subset DFA -> Minimized DFA pipeline
+                // (as named in StateReductionCard above) is fully visible.
+                AutomatonGraphView.subsetDfa(dfa: state.inspection.dfa),
+                const SizedBox(height: 16),
+
                 AutomatonGraphView.dfa(
                   dfa: state.inspection.minDfa,
                   activeState: state.traceResult?.path.last,

@@ -103,24 +103,43 @@ class AutomatonGraphView extends StatelessWidget {
     );
   }
 
-  /// Convenience constructor straight from a [Dfa] (pass the *minimized*
-  /// DFA to show the automaton the project actually ships).
+  /// Convenience constructor straight from a [Dfa]. Defaults describe the
+  /// *minimized* DFA; pass [title]/[caption]/[icon] (or use
+  /// [AutomatonGraphView.subsetDfa]) to describe the unminimized one.
   factory AutomatonGraphView.dfa({
     required Dfa dfa,
     int? activeState,
     String title = 'Minimized DFA',
+    String caption =
+        'Missing arrows mean "no candle in Σ continues the match from here" — the DFA rejects there.',
+    IconData icon = Icons.hub,
   }) {
     return AutomatonGraphView(
       title: title,
-      icon: Icons.hub,
+      icon: icon,
       numStates: dfa.numStates,
       edges: buildDfaEdges(dfa),
       startState: dfa.start,
       acceptStates: dfa.accepts,
       stateLabels: dfa.stateLabels,
       activeState: activeState,
-      caption:
-          'Missing arrows mean "no candle in Σ continues the match from here" — the DFA rejects there.',
+      caption: caption,
+    );
+  }
+
+  /// The unminimized DFA straight out of Subset (Powerset) Construction --
+  /// one state per *set* of NFA states (shown beneath each node). This is
+  /// the middle stage between the NFA and the Minimized DFA: compare it
+  /// against [AutomatonGraphView.dfa] to see exactly which states Moore's
+  /// algorithm merged.
+  factory AutomatonGraphView.subsetDfa({required Dfa dfa}) {
+    return AutomatonGraphView.dfa(
+      dfa: dfa,
+      title: 'Subset DFA — before minimization',
+      icon: Icons.account_tree,
+      caption: 'Each state is one SET of NFA states reached together '
+          '(the label beneath it) — the direct output of Subset Construction, '
+          'before Moore\'s algorithm merges indistinguishable states.',
     );
   }
 
@@ -262,9 +281,9 @@ class _LegendCirclePainter extends CustomPainter {
 // ---------------------------------------------------------------------------
 
 const double _kNodeRadius = 22.0;
-const double _kLayerSpacing = 130.0;
-const double _kNodeSpacing = 78.0;
-const double _kPadding = 50.0;
+const double _kLayerSpacing = 108.0;
+const double _kNodeSpacing = 68.0;
+const double _kPadding = 60.0;
 
 class _GraphLayout {
   final Map<int, Offset> positions = {};
@@ -527,10 +546,17 @@ class _GraphPainter extends CustomPainter {
     // represents), shown as a small caption just under the node.
     final rawLabel = stateLabels?[state];
     if (rawLabel != null && rawLabel.isNotEmpty) {
-      final truncated = rawLabel.length > 14 ? '${rawLabel.substring(0, 13)}…' : rawLabel;
+      // Minimized-DFA labels are built by joining every merged original
+      // label with '∪' and can get arbitrarily long, so blind character
+      // truncation used to cut mid-set-notation (e.g. "{5,6,7,8}∪{7,...").
+      // Showing a merge count instead is always readable.
+      final mergedParts = rawLabel.split('∪');
+      final display = mergedParts.length > 1
+          ? '${mergedParts.length} sets merged'
+          : (rawLabel.length > 18 ? '${rawLabel.substring(0, 17)}…' : rawLabel);
       final labelTp = TextPainter(
         text: TextSpan(
-          text: truncated,
+          text: display,
           style: const TextStyle(color: AppTheme.textMuted, fontSize: 8.5, fontFamily: 'monospace'),
         ),
         textDirection: TextDirection.ltr,
