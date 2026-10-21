@@ -9,6 +9,7 @@ import '../bloc/automaton_event.dart';
 import '../bloc/automaton_state.dart';
 import '../widgets/ast_tree_card.dart';
 import '../widgets/dfa_simulator_card.dart';
+import '../widgets/automaton_graph_view.dart';
 import '../widgets/dfa_transition_table.dart';
 import '../widgets/state_reduction_card.dart';
 
@@ -87,6 +88,18 @@ class _AutomatonPageState extends State<AutomatonPage> {
 
                 // State Reduction Card
                 StateReductionCard(inspection: state.inspection),
+                const SizedBox(height: 16),
+
+                // Graphical state diagrams: actual circles + labeled
+                // transition arrows for the Thompson's-Construction NFA
+                // and the minimized DFA.
+                AutomatonGraphView.nfa(nfa: state.inspection.nfa),
+                const SizedBox(height: 16),
+
+                AutomatonGraphView.dfa(
+                  dfa: state.inspection.minDfa,
+                  activeState: state.traceResult?.path.last,
+                ),
                 const SizedBox(height: 16),
 
                 // DFA State Transition Table
