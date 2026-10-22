@@ -211,6 +211,7 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(12),
               child: CandlestickChart(
                 candles: result.candles,
+                encodedSymbols: result.encodedString,
                 highlightStart: _highlightStart,
                 highlightEnd: _highlightEnd,
                 highlightColor: _highlightColor,

@@ -13,6 +13,13 @@ class CandlestickChart extends StatelessWidget {
   final int? highlightEnd;
   final Color? highlightColor;
 
+  /// The encoded alphabet symbol for each candle, in the same order as
+  /// [candles] (so `encodedSymbols[i]` describes `candles[i]`). When this
+  /// is given and its length matches [candles], every candle is colored
+  /// by what the encoder actually classified it as (U/D/F/G) instead of
+  /// the simpler bullish/bearish-only coloring.
+  final String? encodedSymbols;
+
   const CandlestickChart({
     super.key,
     required this.candles,
@@ -20,6 +27,7 @@ class CandlestickChart extends StatelessWidget {
     this.highlightStart,
     this.highlightEnd,
     this.highlightColor,
+    this.encodedSymbols,
   });
 
   @override
@@ -33,37 +41,95 @@ class CandlestickChart extends StatelessWidget {
 
     const candleSlotWidth = 7.0;
     final totalWidth = candles.length * candleSlotWidth;
+    final colorBySymbol =
+        encodedSymbols != null && encodedSymbols!.length == candles.length;
 
-    return SizedBox(
-      height: height,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: CustomPaint(
-          size: Size(math.max(totalWidth, 300), height),
-          painter: _CandlestickPainter(
-            candles: candles,
-            highlightStart: highlightStart,
-            highlightEnd: highlightEnd,
-            highlightColor: highlightColor ?? AppTheme.bullishColor,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (colorBySymbol) _buildColorKey(),
+        if (colorBySymbol) const SizedBox(height: 8),
+        SizedBox(
+          height: height,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: CustomPaint(
+              size: Size(math.max(totalWidth, 300), height),
+              painter: _CandlestickPainter(
+                candles: candles,
+                encodedSymbols: colorBySymbol ? encodedSymbols : null,
+                highlightStart: highlightStart,
+                highlightEnd: highlightEnd,
+                highlightColor: highlightColor ?? AppTheme.bullishColor,
+              ),
+            ),
           ),
         ),
-      ),
+      ],
+    );
+  }
+
+  /// U/D/F/G -> color legend, shown only when candles are colored by
+  /// their encoded symbol instead of plain bullish/bearish.
+  Widget _buildColorKey() {
+    Widget entry(Color color, String label) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+          ],
+        );
+
+    return Wrap(
+      spacing: 14,
+      runSpacing: 4,
+      children: [
+        entry(AppTheme.bullishColor, 'U — up'),
+        entry(AppTheme.bearishColor, 'D — down'),
+        entry(AppTheme.neutralColor, 'F — flat'),
+        entry(AppTheme.gapColor, 'G — gap'),
+      ],
     );
   }
 }
 
 class _CandlestickPainter extends CustomPainter {
   final List<Candle> candles;
+  final String? encodedSymbols;
   final int? highlightStart;
   final int? highlightEnd;
   final Color highlightColor;
 
   _CandlestickPainter({
     required this.candles,
+    this.encodedSymbols,
     this.highlightStart,
     this.highlightEnd,
     required this.highlightColor,
   });
+
+  /// Maps one encoded alphabet symbol to the color it's drawn in.
+  /// Falls back to plain bullish/bearish if the symbol isn't recognized
+  /// (keeps the chart rendering something sensible either way).
+  Color _colorForSymbol(String symbol, bool isBullish) {
+    switch (symbol) {
+      case 'U':
+        return AppTheme.bullishColor;
+      case 'D':
+        return AppTheme.bearishColor;
+      case 'F':
+        return AppTheme.neutralColor;
+      case 'G':
+        return AppTheme.gapColor;
+      default:
+        return isBullish ? AppTheme.bullishColor : AppTheme.bearishColor;
+    }
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -134,7 +200,9 @@ class _CandlestickPainter extends CustomPainter {
       final openY = toY(c.open);
       final closeY = toY(c.close);
 
-      final color = c.isBullish ? AppTheme.bullishColor : AppTheme.bearishColor;
+      final color = encodedSymbols != null
+          ? _colorForSymbol(encodedSymbols![i], c.isBullish)
+          : (c.isBullish ? AppTheme.bullishColor : AppTheme.bearishColor);
       final paint = Paint()
         ..color = color
         ..strokeWidth = 1;
@@ -173,6 +241,7 @@ class _CandlestickPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CandlestickPainter oldDelegate) {
     return oldDelegate.candles != candles ||
+        oldDelegate.encodedSymbols != encodedSymbols ||
         oldDelegate.highlightStart != highlightStart ||
         oldDelegate.highlightEnd != highlightEnd;
   }

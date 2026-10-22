@@ -22,9 +22,10 @@ class AppTheme {
       );
 
   // Chart colors
-  static const Color bullishColor = Color(0xFF26A69A);
-  static const Color bearishColor = Color(0xFFEF5350);
-  static const Color neutralColor = Color(0xFFFFCA28);
+  static const Color bullishColor = Color(0xFF26A69A); // U — up
+  static const Color bearishColor = Color(0xFFEF5350); // D — down
+  static const Color neutralColor = Color(0xFFFFCA28); // F — flat
+  static const Color gapColor = Color(0xFF7E57C2); // G — gap
   static const Color gridColor = Color(0xFF2A2A2A);
   static const Color textMuted = Color(0x61FFFFFF);
 }
