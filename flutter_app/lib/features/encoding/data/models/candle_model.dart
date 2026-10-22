@@ -1,5 +1,6 @@
 import 'package:csv/csv.dart';
 
+import '../../../../core/error/exceptions.dart';
 import '../../domain/entities/candle.dart';
 
 /// Data-layer model that extends the domain [Candle] entity,
@@ -38,12 +39,27 @@ class CandleModel extends Candle {
       throw FormatException('Column ending in "$suffix" not found in $headers');
     }
 
+    // double.parse throws a FormatException (not a bare TypeError) on a
+    // blank/garbled cell, and names exactly which column was bad --
+    // instead of letting a malformed row crash the whole screen with an
+    // opaque "type 'Null' is not a subtype of type 'double'".
+    double parseColumn(String suffix) {
+      final raw = findColumn(suffix);
+      final parsed = double.tryParse(raw);
+      if (parsed == null) {
+        throw CacheException(
+          'Bundled CSV has an invalid "$suffix" value: "$raw"',
+        );
+      }
+      return parsed;
+    }
+
     return CandleModel(
       date: findColumn('Date'),
-      open: double.parse(findColumn('Open')),
-      high: double.parse(findColumn('High')),
-      low: double.parse(findColumn('Low')),
-      close: double.parse(findColumn('Close')),
+      open: parseColumn('Open'),
+      high: parseColumn('High'),
+      low: parseColumn('Low'),
+      close: parseColumn('Close'),
     );
   }
 
@@ -68,7 +84,19 @@ class CandleModel extends Candle {
     double number(String key) {
       final value = json[key];
       if (value is num) return value.toDouble();
-      return double.parse(value as String);
+      if (value is String) {
+        final parsed = double.tryParse(value);
+        if (parsed != null) return parsed;
+      }
+      // Turns a bare, unlocatable TypeError ("type 'Null' is not a
+      // subtype of type 'double'") into a ServerException carrying the
+      // exact field and the exact value the backend actually sent --
+      // this flows through the same error path as any other API error
+      // (see candle_remote_data_source.dart), so the UI shows a clear
+      // "data is currently not available" message instead of crashing.
+      throw ServerException(
+        'Live market API sent an unexpected value for "$key": $value',
+      );
     }
 
     return CandleModel(
