@@ -98,6 +98,9 @@ class CandlestickChart extends StatelessWidget {
   }
 }
 
+// Height reserved along the bottom for the x-axis time labels.
+const double _kXAxisHeight = 16.0;
+
 class _CandlestickPainter extends CustomPainter {
   final List<Candle> candles;
   final String? encodedSymbols;
@@ -151,7 +154,13 @@ class _CandlestickPainter extends CustomPainter {
     final slotWidth = size.width / candles.length;
     final bodyWidth = slotWidth * 0.65;
 
-    _drawGrid(canvas, size, paddedMin, paddedMax);
+    // Reserve a strip along the bottom for "what time did this candle
+    // land" labels -- the price area (grid, wicks, bodies) is drawn only
+    // above it, in a slightly shorter height.
+    final chartHeight = size.height - _kXAxisHeight;
+
+    _drawGrid(canvas, Size(size.width, chartHeight), paddedMin, paddedMax);
+    _drawTimeAxis(canvas, size, chartHeight, slotWidth);
 
     // Draw match highlight zone if selected
     if (highlightStart != null &&
@@ -168,7 +177,7 @@ class _CandlestickPainter extends CustomPainter {
 
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(left, 0, width, size.height),
+          Rect.fromLTWH(left, 0, width, chartHeight),
           const Radius.circular(6),
         ),
         highlightPaint,
@@ -181,7 +190,7 @@ class _CandlestickPainter extends CustomPainter {
 
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(left, 0, width, size.height),
+          Rect.fromLTWH(left, 0, width, chartHeight),
           const Radius.circular(6),
         ),
         borderPaint,
@@ -193,7 +202,7 @@ class _CandlestickPainter extends CustomPainter {
       final x = i * slotWidth + slotWidth / 2;
 
       double toY(double price) =>
-          size.height - ((price - paddedMin) / paddedRange) * size.height;
+          chartHeight - ((price - paddedMin) / paddedRange) * chartHeight;
 
       final highY = toY(c.high);
       final lowY = toY(c.low);
@@ -236,6 +245,53 @@ class _CandlestickPainter extends CustomPainter {
       final y = size.height * i / gridLines;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
+  }
+
+  /// Draws a handful of evenly-spaced "HH:mm" labels along the bottom so
+  /// it's clear what time each candle landed, without cramming a label
+  /// under every single candle (120 of them would overlap into mush).
+  void _drawTimeAxis(Canvas canvas, Size size, double chartHeight, double slotWidth) {
+    if (candles.isEmpty) return;
+
+    // Roughly one label per 70px of width, at least 2, never more than
+    // one per candle.
+    final maxLabels = (size.width / 70).floor().clamp(2, candles.length);
+    final step = (candles.length / maxLabels).ceil().clamp(1, candles.length);
+
+    final tickPaint = Paint()
+      ..color = AppTheme.gridColor
+      ..strokeWidth = 0.5;
+
+    for (var i = 0; i < candles.length; i += step) {
+      final x = i * slotWidth + slotWidth / 2;
+
+      canvas.drawLine(Offset(x, chartHeight), Offset(x, chartHeight + 3), tickPaint);
+
+      final tp = TextPainter(
+        text: TextSpan(
+          text: _timeLabelFor(candles[i].date),
+          style: const TextStyle(color: AppTheme.textMuted, fontSize: 9, fontFamily: 'monospace'),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      // Clamp so the first/last label doesn't spill past the chart edge.
+      final labelX = x - tp.width / 2;
+      final clampedX = labelX.clamp(0.0, size.width - tp.width);
+      tp.paint(canvas, Offset(clampedX, chartHeight + 5));
+    }
+  }
+
+  /// Pulls "HH:mm" out of a candle's date string. The app's data sources
+  /// use "YYYY-MM-DD HH:mm:ss" (the Twelve Data API's `datetime` field);
+  /// this handles an ISO "T" separator too and falls back to the raw
+  /// string if neither shape matches, so a chart never breaks over an
+  /// unexpected date format.
+  String _timeLabelFor(String date) {
+    final parts = date.contains('T') ? date.split('T') : date.split(' ');
+    if (parts.length < 2) return date;
+    final time = parts[1];
+    return time.length >= 5 ? time.substring(0, 5) : time;
   }
 
   @override
