@@ -118,7 +118,6 @@ class AutomatonGraphView extends StatefulWidget {
 
   final int startState;
   final Set<int> acceptStates;
-  final Map<int, String>? stateLabels;
   final int? activeState;
   final String caption;
 
@@ -136,7 +135,6 @@ class AutomatonGraphView extends StatefulWidget {
     this.trapState,
     required this.startState,
     required this.acceptStates,
-    this.stateLabels,
     this.activeState,
     required this.caption,
     this.captionWithTrap,
@@ -182,7 +180,6 @@ class AutomatonGraphView extends StatefulWidget {
       trapState: trapState,
       startState: dfa.start,
       acceptStates: dfa.accepts,
-      stateLabels: dfa.stateLabels,
       activeState: activeState,
       caption: caption ??
           'Missing arrows mean "no candle in Σ continues the match from here" '
@@ -206,9 +203,10 @@ class AutomatonGraphView extends StatefulWidget {
       dfa: dfa,
       title: 'Subset DFA — before minimization',
       icon: Icons.account_tree,
-      caption: 'Each state is one SET of NFA states reached together '
-          '(the label beneath it) — the direct output of Subset Construction, '
-          'before Moore\'s algorithm merges indistinguishable states.',
+      caption: 'Each state here is one SET of NFA states reached together — '
+          'the direct output of Subset Construction, before Moore\'s '
+          'algorithm merges indistinguishable states into the Minimized DFA '
+          'below.',
     );
   }
 
@@ -332,7 +330,6 @@ class _AutomatonGraphViewState extends State<AutomatonGraphView> {
                             acceptStates: widget.acceptStates,
                             startState: widget.startState,
                             activeState: widget.activeState,
-                            stateLabels: widget.stateLabels,
                             trapState: effectiveTrapState,
                           ),
                         ),
@@ -516,7 +513,6 @@ class _GraphPainter extends CustomPainter {
   final Set<int> acceptStates;
   final int startState;
   final int? activeState;
-  final Map<int, String>? stateLabels;
   final int? trapState;
 
   _GraphPainter({
@@ -525,7 +521,6 @@ class _GraphPainter extends CustomPainter {
     required this.acceptStates,
     required this.startState,
     required this.activeState,
-    required this.stateLabels,
     this.trapState,
   });
 
@@ -551,14 +546,17 @@ class _GraphPainter extends CustomPainter {
     for (final e in edges) {
       final hasReverse = edgesByPair.containsKey((e.to, e.from)) && e.from != e.to;
 
+      // Wider spacing between fanned siblings (was 24px) so their labels
+      // land clearly apart instead of clustering into an unreadable knot
+      // when several states all reject into the same "dead" state.
       var fanBow = 0.0;
       if (e.from != e.to) {
         final siblings = edgesByTarget[e.to]!;
         final idx = siblings.indexOf(e);
         final center = (siblings.length - 1) / 2.0;
-        fanBow = (idx - center) * 24.0;
+        fanBow = (idx - center) * 38.0;
       }
-      final bow = fanBow + (hasReverse ? 24.0 : 0.0);
+      final bow = fanBow + (hasReverse ? 30.0 : 0.0);
 
       _drawEdge(canvas, e, bow: bow);
     }
@@ -605,15 +603,35 @@ class _GraphPainter extends CustomPainter {
   }
 
   void _drawSelfLoop(Canvas canvas, Offset center, String label, Paint paint) {
-    final loopCenter = center + const Offset(0, -_kNodeRadius - 26);
-    final rect = Rect.fromCenter(center: loopCenter, width: 40, height: 40);
-    canvas.drawArc(rect, math.pi * 0.05, math.pi * 1.9, false, paint);
+    const loopRadius = 20.0;
+    // Loop sits directly on top of the node -- its bottom edge touches the
+    // node's top edge exactly, with no vertical gap between the two.
+    final loopCenter = center + const Offset(0, -_kNodeRadius - loopRadius);
 
-    // Arrowhead pointing back into the node (approx. bottom-right of loop).
-    final arrowPoint = center + Offset(_kNodeRadius * 0.55, -_kNodeRadius * 0.85);
-    _drawArrowhead(canvas, arrowPoint, const Offset(0.6, 0.8), paint.color);
+    // The gap in the circle faces straight down (toward the node it
+    // belongs to), and the arrowhead below is placed at the EXACT point
+    // where the stroke stops -- computed from the same angle, not
+    // guessed separately -- so the arrow always sits flush in the gap
+    // instead of floating off toward the node's border.
+    const southAngle = math.pi / 2;
+    const gapHalfAngle = 0.22;
+    final startAngle = southAngle + gapHalfAngle;
+    final sweepAngle = 2 * math.pi - gapHalfAngle * 2;
+    final endAngle = startAngle + sweepAngle;
 
-    _drawEdgeLabel(canvas, loopCenter + const Offset(0, -23), label);
+    final rect = Rect.fromCenter(center: loopCenter, width: loopRadius * 2, height: loopRadius * 2);
+    canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+
+    final tip = loopCenter +
+        Offset(loopRadius * math.cos(endAngle), loopRadius * math.sin(endAngle));
+    // Tangent of the circle at the arc's end point, in the direction the
+    // stroke was travelling (clockwise) -- this is what makes the
+    // arrowhead point naturally back into the gap rather than at an
+    // arbitrary fixed angle.
+    final tangent = Offset(-math.sin(endAngle), math.cos(endAngle));
+    _drawArrowhead(canvas, tip, tangent, paint.color);
+
+    _drawEdgeLabel(canvas, loopCenter + const Offset(0, -loopRadius - 3), label);
   }
 
   void _drawArrowhead(Canvas canvas, Offset tip, Offset direction, Color color) {
@@ -721,31 +739,6 @@ class _GraphPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
-
-    // Optional subset-construction label (which NFA states this DFA state
-    // represents), shown as a small caption just under the node.
-    final rawLabel = stateLabels?[state];
-    if (rawLabel != null && rawLabel.isNotEmpty) {
-      // Minimized-DFA labels are built by joining every merged original
-      // label with '∪' and can get arbitrarily long, so blind character
-      // truncation used to cut mid-set-notation (e.g. "{5,6,7,8}∪{7,...").
-      // Showing a merge count instead is always readable.
-      final mergedParts = rawLabel.split('∪');
-      final display = mergedParts.length > 1
-          ? '${mergedParts.length} sets merged'
-          : (rawLabel.length > 18 ? '${rawLabel.substring(0, 17)}…' : rawLabel);
-      final labelTp = TextPainter(
-        text: TextSpan(
-          text: display,
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 8.5, fontFamily: 'monospace'),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      labelTp.paint(
-        canvas,
-        center + Offset(-labelTp.width / 2, _kNodeRadius + 3),
-      );
-    }
   }
 
   @override

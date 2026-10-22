@@ -34,8 +34,6 @@ class StockSymbolSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCustomSymbol = !SupportedSymbols.all.contains(selected);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -95,14 +93,6 @@ class StockSymbolSelector extends StatelessWidget {
             ],
           ),
         ),
-        if (isCustomSymbol) ...[
-          const SizedBox(height: 6),
-          Text(
-            'Showing custom symbol "$selected" (not in the recommended list — '
-            'if it\'s invalid, the backend will say so below).',
-            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-          ),
-        ],
       ],
     );
   }

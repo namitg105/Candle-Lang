@@ -54,15 +54,14 @@ class CandleRemoteDataSourceImpl implements CandleRemoteDataSource {
         final providerMessage =
             payload['message'] as String? ?? 'Live market API returned an error.';
         throw ServerException(
-          'Data is currently not available for "$symbol". '
-          '(Backend says: $providerMessage)',
+          'Data is currently not available for "$symbol". ($providerMessage)',
         );
       }
       final values = payload['values'];
       if (values is! List || values.isEmpty) {
         throw ServerException(
           'Data is currently not available for "$symbol" — '
-          'the backend returned zero candles for it.',
+          'no candles were returned for it.',
         );
       }
 
