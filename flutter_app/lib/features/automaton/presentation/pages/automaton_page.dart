@@ -119,6 +119,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
                 DfaSimulatorCard(
                   inspection: state.inspection,
                   traceResult: state.traceResult,
+                  substringMatches: state.substringMatches,
                   onSimulate: (input) {
                     context.read<AutomatonBloc>().add(SimulateStringRequested(input));
                   },

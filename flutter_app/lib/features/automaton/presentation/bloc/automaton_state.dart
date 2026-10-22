@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/automaton_inspection.dart';
+import '../../domain/entities/match_span.dart';
 
 abstract class AutomatonState extends Equatable {
   const AutomatonState();
@@ -29,7 +30,16 @@ class AutomatonLoaded extends AutomatonState {
   final String? meaning;
   final AutomatonInspection inspection;
   final String candidateString;
+
+  /// Answers "does the WHOLE candidate string belong to this pattern?"
+  /// (full-string DFA acceptance).
   final DfaTraceResult? traceResult;
+
+  /// Answers "does this pattern occur ANYWHERE inside the candidate
+  /// string?" (substring search over the NFA) -- the same check Market
+  /// Chart runs when scanning candle data. Kept alongside [traceResult]
+  /// so the UI can show both answers instead of just one.
+  final List<MatchSpan>? substringMatches;
 
   const AutomatonLoaded({
     required this.patternName,
@@ -38,6 +48,7 @@ class AutomatonLoaded extends AutomatonState {
     required this.inspection,
     this.candidateString = '',
     this.traceResult,
+    this.substringMatches,
   });
 
   AutomatonLoaded copyWith({
@@ -47,6 +58,7 @@ class AutomatonLoaded extends AutomatonState {
     AutomatonInspection? inspection,
     String? candidateString,
     Object? traceResult = _unset,
+    Object? substringMatches = _unset,
   }) {
     return AutomatonLoaded(
       patternName: patternName ?? this.patternName,
@@ -57,6 +69,9 @@ class AutomatonLoaded extends AutomatonState {
       traceResult: identical(traceResult, _unset)
           ? this.traceResult
           : traceResult as DfaTraceResult?,
+      substringMatches: identical(substringMatches, _unset)
+          ? this.substringMatches
+          : substringMatches as List<MatchSpan>?,
     );
   }
 
@@ -68,6 +83,7 @@ class AutomatonLoaded extends AutomatonState {
         inspection,
         candidateString,
         traceResult,
+        substringMatches,
       ];
 }
 

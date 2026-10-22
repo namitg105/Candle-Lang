@@ -44,14 +44,26 @@ class CandleRemoteDataSourceImpl implements CandleRemoteDataSource {
 
       final payload = jsonDecode(response.body) as Map<String, dynamic>;
       if (payload['status'] == 'error') {
+        // The backend (Twelve Data) sends back a JSON body shaped like
+        // {"code": 400, "message": "...", "status": "error"} when a
+        // symbol it doesn't recognise is requested. We keep that exact
+        // provider message (so nothing is hidden) but lead with a plain
+        // "not available" sentence, since "symbol parameter is missing
+        // or invalid" means nothing to someone who just typed "AMAZON"
+        // instead of "AMZN".
+        final providerMessage =
+            payload['message'] as String? ?? 'Live market API returned an error.';
         throw ServerException(
-          payload['message'] as String? ?? 'Live market API returned an error.',
+          'Data is currently not available for "$symbol". '
+          '(Backend says: $providerMessage)',
         );
       }
       final values = payload['values'];
       if (values is! List || values.isEmpty) {
         throw ServerException(
-            'Live market API returned no candles for $symbol.');
+          'Data is currently not available for "$symbol" — '
+          'the backend returned zero candles for it.',
+        );
       }
 
       final candles = values

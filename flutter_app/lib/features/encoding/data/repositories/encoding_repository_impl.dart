@@ -127,6 +127,8 @@ class EncodingRepositoryImpl implements EncodingRepository {
         encoded: buffer.toString(),
         trace: traces,
         candles: candles,
+        bodyThreshold: bodyThreshold,
+        gapThreshold: gapThreshold,
       ));
     } catch (e) {
       return Left(ComputationFailure('Encoding failed: $e'));

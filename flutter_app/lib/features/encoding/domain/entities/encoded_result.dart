@@ -31,12 +31,25 @@ class EncodedResult extends Equatable {
   /// The original candle list, aligned index-by-index with [trace].
   final List<Candle> candles;
 
+  /// The calibrated body-size cutoff used to decide flat (F) vs. a real
+  /// U/D move for every candle in [trace] -- see
+  /// `EncodingRepositoryImpl.encodeCandles` for how it's calibrated from
+  /// this exact candle set's own average move.
+  final double bodyThreshold;
+
+  /// The calibrated open-vs-previous-close cutoff used to decide whether
+  /// a candle counts as a gap (G).
+  final double gapThreshold;
+
   const EncodedResult({
     required this.encoded,
     required this.trace,
     required this.candles,
+    this.bodyThreshold = 0,
+    this.gapThreshold = 0,
   });
 
   @override
-  List<Object?> get props => [encoded, trace, candles];
+  List<Object?> get props =>
+      [encoded, trace, candles, bodyThreshold, gapThreshold];
 }

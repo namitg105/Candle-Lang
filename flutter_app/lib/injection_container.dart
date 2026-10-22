@@ -14,6 +14,7 @@ import 'features/encoding/presentation/bloc/encoding_bloc.dart';
 import 'features/automaton/data/repositories/automaton_repository_impl.dart';
 import 'features/automaton/domain/repositories/automaton_repository.dart';
 import 'features/automaton/domain/usecases/inspect_automaton.dart';
+import 'features/automaton/domain/usecases/search_nfa.dart';
 import 'features/automaton/presentation/bloc/automaton_bloc.dart';
 
 // ── Pattern detection feature ─────────────────────────────────────────
@@ -101,6 +102,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ScoreMatches(sl()));
   sl.registerLazySingleton(() => RunFullAnalysis(sl()));
   sl.registerLazySingleton(() => InspectAutomaton(sl()));
+  sl.registerLazySingleton(() => SearchNfa(sl()));
 
   // ╔══════════════════════════════════════════════════════════════════╗
   // ║  BLoCs  (registered as factory — new instance per screen)       ║
@@ -117,6 +119,6 @@ Future<void> init() async {
   );
 
   sl.registerFactory(
-    () => AutomatonBloc(inspectAutomaton: sl()),
+    () => AutomatonBloc(inspectAutomaton: sl(), searchNfa: sl()),
   );
 }
