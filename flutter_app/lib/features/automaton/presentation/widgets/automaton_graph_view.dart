@@ -437,9 +437,9 @@ class _LegendCirclePainter extends CustomPainter {
 // Layout: BFS layering left-to-right from the start state.
 // ---------------------------------------------------------------------------
 
-const double _kNodeRadius = 22.0;
-const double _kLayerSpacing = 108.0;
-const double _kNodeSpacing = 68.0;
+const double _kNodeRadius = 26.0;
+const double _kLayerSpacing = 128.0;
+const double _kNodeSpacing = 84.0;
 const double _kPadding = 60.0;
 
 class _GraphLayout {
@@ -531,16 +531,36 @@ class _GraphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Group edges so we know which pairs have a reverse edge too, so those
-    // get a visibly separated curve instead of overlapping.
+    // Group edges so we know which pairs have a reverse edge too (gets
+    // pushed further apart), and group non-self-loop edges by their
+    // target so every arrow converging on the same node -- e.g. several
+    // different states all rejecting into one shared "dead" state --
+    // fans out around it instead of stacking into one unreadable tangle.
     final edgesByPair = <(int, int), List<GraphEdgeSpec>>{};
+    final edgesByTarget = <int, List<GraphEdgeSpec>>{};
     for (final e in edges) {
       edgesByPair.putIfAbsent((e.from, e.to), () => []).add(e);
+      if (e.from != e.to) {
+        edgesByTarget.putIfAbsent(e.to, () => []).add(e);
+      }
+    }
+    for (final siblings in edgesByTarget.values) {
+      siblings.sort((a, b) => a.from.compareTo(b.from));
     }
 
     for (final e in edges) {
       final hasReverse = edgesByPair.containsKey((e.to, e.from)) && e.from != e.to;
-      _drawEdge(canvas, e, curveAway: hasReverse);
+
+      var fanBow = 0.0;
+      if (e.from != e.to) {
+        final siblings = edgesByTarget[e.to]!;
+        final idx = siblings.indexOf(e);
+        final center = (siblings.length - 1) / 2.0;
+        fanBow = (idx - center) * 24.0;
+      }
+      final bow = fanBow + (hasReverse ? 24.0 : 0.0);
+
+      _drawEdge(canvas, e, bow: bow);
     }
 
     layout.positions.forEach((state, center) {
@@ -548,7 +568,7 @@ class _GraphPainter extends CustomPainter {
     });
   }
 
-  void _drawEdge(Canvas canvas, GraphEdgeSpec e, {required bool curveAway}) {
+  void _drawEdge(Canvas canvas, GraphEdgeSpec e, {required double bow}) {
     final from = layout.positions[e.from];
     final to = layout.positions[e.to];
     if (from == null || to == null) return;
@@ -568,10 +588,6 @@ class _GraphPainter extends CustomPainter {
     final unit = distance == 0 ? const Offset(1, 0) : delta / distance;
     final normal = Offset(-unit.dy, unit.dx);
 
-    // Curve bows away from the straight line; a pair with a reverse edge
-    // bows further so the two arrows don't sit on top of each other.
-    final bow = curveAway ? 26.0 : (e.from < e.to ? 0.0 : 14.0);
-
     final start = from + unit * _kNodeRadius;
     final end = to - unit * _kNodeRadius;
     final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2) + normal * bow;
@@ -589,15 +605,15 @@ class _GraphPainter extends CustomPainter {
   }
 
   void _drawSelfLoop(Canvas canvas, Offset center, String label, Paint paint) {
-    final loopCenter = center + const Offset(0, -_kNodeRadius - 22);
-    final rect = Rect.fromCenter(center: loopCenter, width: 34, height: 34);
+    final loopCenter = center + const Offset(0, -_kNodeRadius - 26);
+    final rect = Rect.fromCenter(center: loopCenter, width: 40, height: 40);
     canvas.drawArc(rect, math.pi * 0.05, math.pi * 1.9, false, paint);
 
     // Arrowhead pointing back into the node (approx. bottom-right of loop).
     final arrowPoint = center + Offset(_kNodeRadius * 0.55, -_kNodeRadius * 0.85);
     _drawArrowhead(canvas, arrowPoint, const Offset(0.6, 0.8), paint.color);
 
-    _drawEdgeLabel(canvas, loopCenter + const Offset(0, -20), label);
+    _drawEdgeLabel(canvas, loopCenter + const Offset(0, -23), label);
   }
 
   void _drawArrowhead(Canvas canvas, Offset tip, Offset direction, Color color) {
@@ -697,7 +713,7 @@ class _GraphPainter extends CustomPainter {
         text: isTrap ? 'dead' : 'q$state',
         style: TextStyle(
           color: isActive ? Colors.black : (isTrap ? Colors.redAccent : Colors.white),
-          fontSize: isTrap ? 10 : 12,
+          fontSize: isTrap ? 11 : 13,
           fontWeight: FontWeight.bold,
           fontFamily: 'monospace',
         ),
