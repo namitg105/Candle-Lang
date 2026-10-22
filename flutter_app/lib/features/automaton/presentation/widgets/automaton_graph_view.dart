@@ -93,22 +93,38 @@ List<GraphEdgeSpec> buildDfaEdges(Dfa dfa, {int? trapState}) {
 /// No pan/zoom — the whole diagram is scaled (never enlarged, only
 /// shrunk) to fit the card's width, so every state and transition is
 /// visible at once without scrolling.
-class AutomatonGraphView extends StatelessWidget {
+///
+/// A DFA diagram (built via [AutomatonGraphView.dfa] / [.subsetDfa]) can
+/// toggle between two views: the default, uncluttered one (only
+/// transitions that actually continue the match -- how this diagram used
+/// to look) and a "show all inputs" view that adds the explicit dead/
+/// reject state for every missing symbol. It starts on the default view;
+/// the toggle only appears when there's actually something extra to show.
+class AutomatonGraphView extends StatefulWidget {
   final String title;
   final IconData icon;
   final int numStates;
+
+  /// Default edge set — no dead state, only real transitions.
   final List<GraphEdgeSpec> edges;
+
+  /// Same automaton with every missing input routed to an explicit dead
+  /// state, for the "show all inputs" toggle. Null for NFA views, or for
+  /// a DFA that's already complete (nothing extra to toggle on).
+  final List<GraphEdgeSpec>? edgesWithTrap;
+
+  /// Id of the dead state used by [edgesWithTrap] (always == [numStates]).
+  final int? trapState;
+
   final int startState;
   final Set<int> acceptStates;
   final Map<int, String>? stateLabels;
   final int? activeState;
   final String caption;
 
-  /// When set, this id (always == [numStates], one past the real automaton
-  /// states) is an extra "dead/reject" node added purely for display, so a
-  /// DFA diagram can show all 4 inputs from every real state instead of
-  /// leaving "no transition" implicit.
-  final int? trapState;
+  /// Caption shown instead of [caption] while the "show all inputs"
+  /// toggle is on.
+  final String? captionWithTrap;
 
   const AutomatonGraphView({
     super.key,
@@ -116,12 +132,14 @@ class AutomatonGraphView extends StatelessWidget {
     required this.icon,
     required this.numStates,
     required this.edges,
+    this.edgesWithTrap,
+    this.trapState,
     required this.startState,
     required this.acceptStates,
     this.stateLabels,
     this.activeState,
     required this.caption,
-    this.trapState,
+    this.captionWithTrap,
   });
 
   /// Convenience constructor straight from an [Nfa].
@@ -159,19 +177,22 @@ class AutomatonGraphView extends StatelessWidget {
       title: title,
       icon: icon,
       numStates: dfa.numStates,
-      edges: buildDfaEdges(dfa, trapState: trapState),
+      edges: buildDfaEdges(dfa),
+      edgesWithTrap: needsTrap ? buildDfaEdges(dfa, trapState: trapState) : null,
+      trapState: trapState,
       startState: dfa.start,
       acceptStates: dfa.accepts,
       stateLabels: dfa.stateLabels,
       activeState: activeState,
-      trapState: trapState,
       caption: caption ??
-          (needsTrap
-              ? 'All 4 inputs (U, D, F, G) are shown from every state — several '
-                  'inputs sharing a target are combined on one arrow. An input '
-                  'that would reject the match is routed to the dashed "dead" '
-                  'state instead of being left undrawn.'
-              : 'Every state already has a real transition for all 4 inputs — no dead state needed here.'),
+          'Missing arrows mean "no candle in Σ continues the match from here" '
+              '— the DFA rejects there.',
+      captionWithTrap: needsTrap
+          ? 'All 4 inputs (U, D, F, G) are shown from every state — several '
+              'inputs sharing a target are combined on one arrow. An input '
+              'that would reject the match is routed to the dashed "dead" '
+              'state instead of being left undrawn.'
+          : null,
     );
   }
 
@@ -192,10 +213,31 @@ class AutomatonGraphView extends StatelessWidget {
   }
 
   @override
+  State<AutomatonGraphView> createState() => _AutomatonGraphViewState();
+}
+
+class _AutomatonGraphViewState extends State<AutomatonGraphView> {
+  // Default OFF: the uncluttered view (only real transitions) is what the
+  // user sees unless they explicitly ask for every input via the toggle.
+  bool _showAllInputs = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final totalLayoutStates = numStates + (trapState != null ? 1 : 0);
-    final layout = _GraphLayout(numStates: totalLayoutStates, startState: startState, edges: edges);
+    final hasToggle = widget.edgesWithTrap != null;
+    final showAll = hasToggle && _showAllInputs;
+
+    final effectiveEdges = showAll ? widget.edgesWithTrap! : widget.edges;
+    final effectiveTrapState = showAll ? widget.trapState : null;
+    final effectiveCaption =
+        showAll && widget.captionWithTrap != null ? widget.captionWithTrap! : widget.caption;
+
+    final totalLayoutStates = widget.numStates + (effectiveTrapState != null ? 1 : 0);
+    final layout = _GraphLayout(
+      numStates: totalLayoutStates,
+      startState: widget.startState,
+      edges: effectiveEdges,
+    );
 
     return Card(
       child: Padding(
@@ -205,11 +247,11 @@ class AutomatonGraphView extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 20, color: AppTheme.bullishColor),
+                Icon(widget.icon, size: 20, color: AppTheme.bullishColor),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    title,
+                    widget.title,
                     style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -220,11 +262,11 @@ class AutomatonGraphView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '$numStates state${numStates == 1 ? '' : 's'}',
+                    '${widget.numStates} state${widget.numStates == 1 ? '' : 's'}',
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                   ),
                 ),
-                if (trapState != null) ...[
+                if (effectiveTrapState != null) ...[
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -243,11 +285,15 @@ class AutomatonGraphView extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              caption,
+              effectiveCaption,
               style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.textMuted),
             ),
+            if (hasToggle) ...[
+              const SizedBox(height: 8),
+              _buildToggle(theme),
+            ],
             const SizedBox(height: 10),
-            _buildLegend(theme),
+            _buildLegend(theme, effectiveTrapState),
             const SizedBox(height: 10),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -282,12 +328,12 @@ class AutomatonGraphView extends StatelessWidget {
                         child: CustomPaint(
                           painter: _GraphPainter(
                             layout: layout,
-                            edges: edges,
-                            acceptStates: acceptStates,
-                            startState: startState,
-                            activeState: activeState,
-                            stateLabels: stateLabels,
-                            trapState: trapState,
+                            edges: effectiveEdges,
+                            acceptStates: widget.acceptStates,
+                            startState: widget.startState,
+                            activeState: widget.activeState,
+                            stateLabels: widget.stateLabels,
+                            trapState: effectiveTrapState,
                           ),
                         ),
                       ),
@@ -307,7 +353,34 @@ class AutomatonGraphView extends StatelessWidget {
     );
   }
 
-  Widget _buildLegend(ThemeData theme) {
+  /// Switch that flips between the default (real transitions only) and
+  /// "show all inputs" (adds the dead state) views of a DFA diagram.
+  Widget _buildToggle(ThemeData theme) {
+    return InkWell(
+      onTap: () => setState(() => _showAllInputs = !_showAllInputs),
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Switch(
+            value: _showAllInputs,
+            onChanged: (value) => setState(() => _showAllInputs = value),
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              _showAllInputs
+                  ? 'Showing all inputs (incl. the dead state)'
+                  : 'Showing only the inputs that continue a match',
+              style: theme.textTheme.labelSmall?.copyWith(color: AppTheme.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegend(ThemeData theme, int? effectiveTrapState) {
     Widget chip(Widget swatch, String label) => Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -330,7 +403,7 @@ class AutomatonGraphView extends StatelessWidget {
         chip(circleSwatch(Colors.blueAccent), 'start state'),
         chip(circleSwatch(AppTheme.bullishColor, doubled: true), 'accept state'),
         chip(circleSwatch(AppTheme.neutralColor), 'current (simulation)'),
-        if (trapState != null)
+        if (effectiveTrapState != null)
           chip(circleSwatch(Colors.redAccent.withValues(alpha: 0.75)), 'dead state (rejects)'),
       ],
     );
@@ -663,6 +736,7 @@ class _GraphPainter extends CustomPainter {
   bool shouldRepaint(covariant _GraphPainter oldDelegate) {
     return oldDelegate.layout != layout ||
         oldDelegate.activeState != activeState ||
-        oldDelegate.acceptStates != acceptStates;
+        oldDelegate.acceptStates != acceptStates ||
+        oldDelegate.trapState != trapState;
   }
 }
